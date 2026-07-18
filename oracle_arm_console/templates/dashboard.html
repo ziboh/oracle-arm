@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="A1 ARM Control 首页">
+      <span class="product-mark"><i></i>A1</span>
+      <span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span>
+    </a>
+    <nav class="topbar-nav" aria-label="主导航">
+      <a class="is-active" href="{{ url_for('dashboard') }}">控制台</a>
+      <a href="{{ url_for('logs') }}">运行日志</a>
+      <a href="{{ url_for('settings') }}">设置</a>
+    </nav>
+    <details class="mobile-menu">
+      <summary><span>控制台</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
+      <nav aria-label="窄屏主导航">
+        <a class="is-active" href="{{ url_for('dashboard') }}" aria-current="page">控制台</a>
+        <a href="{{ url_for('logs') }}">运行日志</a>
+        <a href="{{ url_for('settings') }}">设置</a>
+      </nav>
+    </details>
+    <div class="topbar-context"><span class="context-dot"></span> Capacity watcher ready</div>
+    <div class="topbar-actions">
+      <form action="{{ url_for('logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button ghost compact-button" type="submit">退出</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main class="page-shell" data-oci-configured="{{ 'true' if oci_configuration.configured else 'false' }}">
+  <section class="mission-bar" aria-live="polite">
+    <div class="mission-primary">
+      <div class="mission-status">
+        <span id="status-dot" class="status-dot"></span>
+        <div><span class="meta-label">当前任务</span><strong id="status-text">正在连接</strong></div>
+      </div>
+      <a class="mission-log-link" href="{{ url_for('logs') }}">打开运行日志 <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="signal-rail" aria-hidden="true"><span></span></div>
+    <ol class="task-track" aria-label="任务进度">
+      <li class="is-ready"><span>01</span>已配置</li>
+      <li><span>02</span>等待容量</li>
+      <li><span>03</span>创建实例</li>
+      <li><span>04</span>任务完成</li>
+    </ol>
+    <dl class="status-data">
+      <div><dt>开始时间</dt><dd id="started-at">—</dd></div>
+      <div><dt>退出码</dt><dd id="exit-code">—</dd></div>
+    </dl>
+  </section>
+
+  <section class="workbench">
+    <aside class="command-pane" aria-labelledby="task-title">
+      <div class="command-header">
+        <div class="pane-heading">
+          <p class="eyebrow">新建任务</p>
+          <h1 id="task-title">创建 Ampere A1</h1>
+          <p>配置实例并开始等待可用容量。</p>
+        </div>
+        <div class="config-tabs" role="tablist" aria-label="任务配置">
+          <button id="connection-tab" class="config-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="connection-panel" data-tab="connection">
+            <span>01</span>连接
+          </button>
+          <button id="instance-tab" class="config-tab" type="button" role="tab" aria-selected="false" aria-controls="instance-panel" data-tab="instance">
+            <span>02</span>实例
+          </button>
+          <button id="notification-tab" class="config-tab" type="button" role="tab" aria-selected="false" aria-controls="notification-panel" data-tab="notification">
+            <span>03</span>通知
+          </button>
+        </div>
+      </div>
+
+      <form id="start-form" class="task-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="config-viewport">
+          <section id="connection-panel" class="config-panel is-active" role="tabpanel" aria-labelledby="connection-tab" data-panel="connection">
+            <fieldset>
+              <legend>OCI 连接</legend>
+              <p class="panel-intro">先验证账户凭据并读取可用域、子网、镜像和免费存储额度。</p>
+              <div class="connection-actions">
+                <button id="configure-oci" class="button ghost" type="button">{{ "替换 OCI 凭据" if oci_configuration.configured else "导入 OCI 凭据" }}</button>
+                <button id="load-resources" class="button secondary" type="button">读取 OCI 资源</button>
+              </div>
+              <p id="resource-status" class="resource-status" aria-live="polite">{% if oci_configuration.configured %}已保存 {{ oci_configuration.profile }}{% if oci_configuration.region %} · {{ oci_configuration.region }}{% endif %}，请读取 OCI 资源。{% else %}首次部署请先导入 OCI 配置片段和 PEM 私钥。{% endif %}</p>
+              <label>重试间隔<input name="retry_interval" type="number" min="1" max="300" step="1" value="{{ defaults.retry_interval }}"><span class="input-unit">秒</span></label>
+            </fieldset>
+          </section>
+
+          <section id="instance-panel" class="config-panel" role="tabpanel" aria-labelledby="instance-tab" data-panel="instance" hidden>
+            <fieldset id="instance-fields" disabled>
+              <legend>实例配置</legend>
+              <div class="field-pair">
+                <label>实例区间<select id="compartment-id" name="compartment_id" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+                <label>可用域<select id="availability-domain" name="availability_domain" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+              </div>
+              <label>公共子网<select id="subnet-id" name="subnet_id" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+              <div class="field-pair">
+                <label>操作系统分类<select id="image-family" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+                <label>ARM 系统镜像<select id="image-id" name="image_id" required><option value="" selected disabled hidden>先选择操作系统</option></select></label>
+              </div>
+              <label>实例名称<input name="display_name" value="arm-server" maxlength="63" required></label>
+              <div class="spec-grid">
+                <label>OCPU<input name="ocpus" type="number" min="1" max="2" step="1" value="2" required></label>
+                <label>内存<input name="memory_in_gbs" type="number" min="1" max="12" step="1" value="12" required><span class="input-unit">GB</span></label>
+              </div>
+              <div id="storage-meter" class="storage-meter storage-selector" hidden>
+                <div class="storage-selector-header">
+                  <div><b>免费块存储额度</b><small>设置本次实例的启动盘大小</small></div>
+                  <strong id="storage-available">—</strong>
+                </div>
+                <label class="boot-volume-slider">
+                  <span><b>启动盘</b><output id="boot-volume-output" for="boot-volume-range">50 GB</output></span>
+                  <input id="boot-volume-range" type="range" min="50" max="200" step="1" value="50" aria-label="启动盘大小" aria-describedby="boot-volume-hint">
+                </label>
+                <div class="storage-usage-track" aria-hidden="true"><i id="storage-used-bar"></i></div>
+                <div class="storage-selector-footer">
+                  <small id="storage-detail">读取 OCI 资源后显示</small>
+                  <label class="boot-volume-number"><span>精确输入</span><span class="boot-volume-input"><input id="boot-volume-size" name="boot_volume_size_in_gbs" type="number" min="50" max="200" step="1" value="50" required><i>GB</i></span></label>
+                </div>
+                <small id="boot-volume-hint">拖动滑块、滚动鼠标滚轮或输入数值进行选择</small>
+              </div>
+              <div class="section-divider"><span>SSH 登录</span></div>
+              <div class="segmented-control" aria-label="SSH 密钥来源">
+                <label><input type="radio" name="ssh_key_mode" value="generate" checked><span>自动生成</span></label>
+                <label><input type="radio" name="ssh_key_mode" value="upload"><span>已有公钥</span></label>
+              </div>
+              <label class="ssh-public-key-field">SSH 公钥<textarea id="ssh-authorized-keys" name="ssh_authorized_keys" rows="2" placeholder="读取资源后自动生成" readonly required></textarea><small id="ssh-public-key-hint">自动生成模式下，读取资源后会自动填充</small></label>
+              <div id="generated-key-panel" class="ssh-key-panel">
+                <div><b>实例登录密钥</b><small id="ssh-key-status">读取 OCI 资源后自动生成</small></div>
+                <div class="ssh-key-actions">
+                  <button id="regenerate-ssh-key" class="button ghost" type="button">重新生成</button>
+                  <a id="download-ssh-key" class="button secondary" href="#" download="oracle-arm-ssh.key" hidden>下载私钥</a>
+                </div>
+              </div>
+              <div id="upload-key-panel" class="ssh-key-panel" hidden>
+                <div><b>已有 SSH 公钥</b><small id="uploaded-key-status">请在上方文本框中粘贴公钥，不要填写私钥</small></div>
+                <label class="public-key-picker">选择公钥文件<input id="ssh-public-key-file" type="file" accept=".pub,text/plain"></label>
+              </div>
+            </fieldset>
+          </section>
+
+          <section id="notification-panel" class="config-panel" role="tabpanel" aria-labelledby="notification-tab" data-panel="notification" hidden>
+            <fieldset class="notification-workspace">
+              <div class="notification-heading">
+                <div>
+                  <legend>创建结果通知</legend>
+                  <p class="panel-intro">实例创建成功后，把公网地址和登录信息发送到你选择的渠道。</p>
+                </div>
+                <button id="add-notification" class="button primary notification-add-button" type="button"><span aria-hidden="true">＋</span>选择渠道</button>
+              </div>
+              <div class="notification-summary">
+                <span class="notification-summary-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+                <div><small>当前发送策略</small><strong id="notification-summary-text">尚未配置通知</strong></div>
+                <b id="notification-count">0 个渠道</b>
+              </div>
+              {% set telegram_configured = defaults.telegram_token and defaults.telegram_chat_id %}
+              {% set bark_configured = defaults.bark_device_key %}
+              {% set webhook_configured = defaults.webhook_url %}
+              <div id="notification-list" class="notification-list" data-initial-telegram="{{ 'true' if telegram_configured else 'false' }}" data-initial-bark="{{ 'true' if bark_configured else 'false' }}" data-initial-webhook="{{ 'true' if webhook_configured else 'false' }}" data-initial-email="{{ 'true' if defaults.email_smtp_host and defaults.email_username and defaults.email_from and defaults.email_to else 'false' }}" data-initial-webhook-provider="{{ defaults.webhook_provider }}" data-initial-telegram-enabled="{{ 'true' if defaults.telegram_enabled else 'false' }}" data-initial-bark-enabled="{{ 'true' if defaults.bark_enabled else 'false' }}" data-initial-webhook-enabled="{{ 'true' if defaults.webhook_enabled else 'false' }}" data-initial-email-enabled="{{ 'true' if defaults.email_enabled else 'false' }}"></div>
+              <div id="notification-empty" class="notification-empty">
+                <span class="empty-signal" aria-hidden="true"><i></i><i></i><i></i></span>
+                <b>任务完成后还不会通知你</b>
+                <small>添加 Telegram、Bark、邮件或群机器人，成功创建实例时立即收到公网地址。</small>
+                <button id="empty-add-notification" class="button ghost" type="button">添加第一个通知渠道</button>
+              </div>
+            </fieldset>
+          </section>
+        </div>
+      </form>
+      <form id="stop-form" class="stop-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      </form>
+      <div class="task-actions">
+        <button id="stop-button" class="button danger" type="submit" form="stop-form" disabled>停止</button>
+        <button id="start-button" class="button primary" type="submit" form="start-form" disabled>开始等待容量</button>
+      </div>
+    </aside>
+
+    <section class="log-pane" aria-labelledby="log-title">
+      <header>
+        <div><p class="eyebrow">实时事件</p><h2 id="log-title">运行日志</h2></div>
+        <button id="copy-button" class="button ghost" type="button">复制</button>
+      </header>
+      <pre id="logs" tabindex="0"><span>等待任务启动</span></pre>
+    </section>
+  </section>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</main>
+
+<dialog id="oci-dialog" class="settings-dialog credential-dialog" aria-labelledby="oci-dialog-title">
+  <form id="oci-credentials-form" enctype="multipart/form-data" data-configured="{{ 'true' if oci_configuration.configured else 'false' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <header>
+      <div><p class="eyebrow">OCI API 认证</p><h2 id="oci-dialog-title">{{ "替换 OCI 凭据" if oci_configuration.configured else "导入 OCI 凭据" }}</h2></div>
+      <button id="close-oci-dialog" class="dialog-close" type="button" aria-label="关闭">×</button>
+    </header>
+    <div class="dialog-body">
+      <label>配置文件片段<textarea name="config_text" rows="9" placeholder="[DEFAULT]&#10;user=ocid1.user...&#10;fingerprint=...&#10;tenancy=ocid1.tenancy...&#10;region=ap-tokyo-1&#10;key_file=&lt;path to your private keyfile&gt;" required></textarea></label>
+      <label>API 私钥文件<span class="pem-picker"><input name="private_key" type="file" accept=".pem,.key,application/x-pem-file" required><small>选择创建 API Key 时下载的未加密 .pem 文件</small></span></label>
+      <p id="oci-credential-warning" class="credential-warning">{% if oci_configuration.configured %}OCI 私钥无法回显或单独编辑。请重新提交完整配置片段和配套私钥，保存后将整体替换现有凭据。{% else %}Profile 将从配置片段自动识别。私钥会保存在服务器持久化目录中，公网部署必须先启用 HTTPS。{% endif %}</p>
+      <p id="oci-config-error" class="form-error" role="alert"></p>
+    </div>
+    <footer>
+      <button id="cancel-oci-dialog" class="button ghost" type="button">取消</button>
+      <button class="button primary" type="submit">{{ "确认替换并读取资源" if oci_configuration.configured else "保存并读取资源" }}</button>
+    </footer>
+  </form>
+</dialog>
+<dialog id="notification-editor" class="notification-editor-dialog" aria-labelledby="notification-editor-title">
+  <form id="notification-editor-form" class="notification-editor-form">
+    <header class="editor-header">
+      <div><p class="eyebrow">通知渠道</p><h2 id="notification-editor-title">配置通知渠道</h2><p id="notification-editor-copy">选择接收方式，然后填写连接信息。</p></div>
+      <button id="close-notification-editor" class="dialog-close" type="button" aria-label="关闭">×</button>
+    </header>
+    <select id="notification-channel-picker" hidden aria-hidden="true"><option value="telegram">Telegram</option><option value="bark">Bark</option><option value="email">邮箱</option><option value="feishu">飞书</option><option value="dingtalk">钉钉</option><option value="wecom">企业微信</option><option value="discord">Discord</option><option value="slack">Slack</option><option value="generic">通用 Webhook</option></select>
+    <div class="notification-editor-layout">
+      <aside class="channel-catalog" aria-label="选择通知渠道">
+        <div class="channel-catalog-heading"><b>选择接收方式</b><small>已添加的渠道可以继续编辑</small></div>
+        <div class="channel-options">
+          <button class="channel-option is-active" type="button" data-channel-option="telegram"><span class="channel-option-icon">TG</span><span><b>Telegram</b><small>Bot 私聊或群组</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="bark"><span class="channel-option-icon">BK</span><span><b>Bark</b><small>iPhone / macOS 推送</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="email"><span class="channel-option-icon">@</span><span><b>电子邮件</b><small>通过 SMTP 发送</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="feishu"><span class="channel-option-icon">FS</span><span><b>飞书机器人</b><small>发送到飞书群聊</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="dingtalk"><span class="channel-option-icon">DT</span><span><b>钉钉机器人</b><small>发送到钉钉群聊</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="wecom"><span class="channel-option-icon">WX</span><span><b>企业微信</b><small>群机器人 Webhook</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="discord"><span class="channel-option-icon">DC</span><span><b>Discord</b><small>频道 Webhook</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="slack"><span class="channel-option-icon">SL</span><span><b>Slack</b><small>频道 Webhook</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="generic"><span class="channel-option-icon">WH</span><span><b>通用 Webhook</b><small>发送 JSON 请求</small></span><i></i></button>
+        </div>
+      </aside>
+      <section class="channel-config">
+        <header class="channel-config-header">
+          <span id="selected-channel-glyph" class="selected-channel-glyph">TG</span>
+          <div><b id="selected-channel-name">Telegram</b><small id="selected-channel-description">通过 Telegram Bot 接收任务结果</small></div>
+        </header>
+        <div class="channel-config-body">
+          <fieldset class="editor-channel-fields" data-editor-channel="telegram">
+            <label>Bot Token<input name="telegram_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_token else 'false' }}" placeholder="{% if defaults.telegram_token %}已由环境变量提供{% else %}123456:ABC...{% endif %}"><small>从 BotFather 创建机器人后获得。</small></label>
+            <label>接收会话 Chat ID<input name="telegram_chat_id" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_chat_id else 'false' }}" placeholder="{% if defaults.telegram_chat_id %}已由环境变量提供{% else %}123456789{% endif %}"></label>
+            <label>Telegram API 地址<input name="telegram_api_host" value="{{ defaults.telegram_api_host }}" autocomplete="off"><small>通常无需修改。</small></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="bark" hidden>
+            <label>Bark 设备密钥<input name="bark_device_key" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.bark_device_key else 'false' }}" placeholder="{% if defaults.bark_device_key %}已由环境变量提供{% else %}Bark 设备密钥{% endif %}"><small>在 Bark 应用中复制设备密钥。</small></label>
+            <label>Bark 服务地址<input name="bark_server" value="{{ defaults.bark_server }}" autocomplete="off" placeholder="https://api.day.app"></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="email" hidden>
+            <div class="field-pair"><label>SMTP 服务器<input name="email_smtp_host" value="{{ defaults.email_smtp_host }}" placeholder="smtp.qq.com"></label><label>端口<input name="email_smtp_port" type="number" min="1" max="65535" value="{{ defaults.email_smtp_port }}"></label></div>
+            <label>连接加密<select name="email_security"><option value="starttls" {% if defaults.email_security == "starttls" %}selected{% endif %}>STARTTLS（推荐）</option><option value="ssl" {% if defaults.email_security == "ssl" %}selected{% endif %}>SSL / TLS</option><option value="none" {% if defaults.email_security == "none" %}selected{% endif %}>不加密</option></select></label>
+            <label>SMTP 账号<input name="email_username" value="{{ defaults.email_username }}" autocomplete="username" placeholder="your-name@example.com"></label>
+            <label>SMTP 授权码<input name="email_password" type="password" autocomplete="current-password" data-provided="{{ 'true' if defaults.email_password else 'false' }}" placeholder="邮箱授权码或 SMTP 密码"><small>QQ、163 等邮箱通常使用授权码，不是网页登录密码。</small></label>
+            <div class="field-pair"><label>发件人<input name="email_from" value="{{ defaults.email_from }}" placeholder="your-name@example.com"></label><label>收件人<input name="email_to" value="{{ defaults.email_to }}" placeholder="notify@example.com"></label></div>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="webhook" hidden>
+            <input name="webhook_provider" type="hidden" value="{{ defaults.webhook_provider }}">
+            <label>机器人 / Webhook 地址<input name="webhook_url" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.webhook_url else 'false' }}" placeholder="{% if defaults.webhook_url %}已由环境变量提供{% else %}https://...{% endif %}"><small>粘贴对应平台提供的完整 Webhook 地址。</small></label>
+            <p id="webhook-replace-note" class="channel-note">每个任务保存一个 Webhook 渠道；改选其他机器人后会替换当前 Webhook。</p>
+          </fieldset>
+          <label class="editor-enabled"><input id="notification-editor-enabled" type="checkbox"><span><b>任务成功后发送</b><small>消息包含公网 IP、登录用户和 SSH 端口</small></span></label>
+          <p id="notification-editor-error" class="form-error" role="alert"></p>
+        </div>
+      </section>
+    </div>
+    <footer><span class="editor-footer-note">连接信息仅用于当前页面和本次任务，不会写入运行日志</span><div><button id="test-notification-editor" class="button ghost editor-test-button" type="button">发送测试</button><button id="cancel-notification-editor" class="button ghost" type="button">取消</button><button id="save-notification" class="button primary" type="submit">添加到任务</button></div></footer>
+  </form>
+</dialog>
+<script src="{{ url_for('static', filename='app.js') }}?v=20260718-9"></script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}运行日志 · A1 ARM Control{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="A1 ARM Control 首页">
+      <span class="product-mark"><i></i>A1</span>
+      <span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span>
+    </a>
+    <nav class="topbar-nav" aria-label="主导航">
+      <a href="{{ url_for('dashboard') }}">控制台</a>
+      <a class="is-active" href="{{ url_for('logs') }}" aria-current="page">运行日志</a>
+      <a href="{{ url_for('settings') }}">设置</a>
+    </nav>
+    <details class="mobile-menu">
+      <summary><span>运行日志</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
+      <nav aria-label="窄屏主导航">
+        <a href="{{ url_for('dashboard') }}">控制台</a>
+        <a class="is-active" href="{{ url_for('logs') }}" aria-current="page">运行日志</a>
+        <a href="{{ url_for('settings') }}">设置</a>
+      </nav>
+    </details>
+    <div class="topbar-context"><span class="context-dot"></span> Live event stream</div>
+    <div class="topbar-actions">
+      <form action="{{ url_for('logout') }}" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button ghost compact-button" type="submit">退出</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<main class="logs-page-shell">
+  <section class="logs-command-bar" aria-labelledby="logs-page-title">
+    <div class="logs-heading">
+      <p class="eyebrow">实时事件流</p>
+      <h1 id="logs-page-title">运行日志</h1>
+      <p>独立查看容量等待、实例创建与通知发送过程。</p>
+    </div>
+    <div class="logs-status" aria-live="polite">
+      <div class="mission-status">
+        <span id="status-dot" class="status-dot"></span>
+        <div><span class="meta-label">任务状态</span><strong id="status-text">正在连接</strong></div>
+      </div>
+      <dl class="status-data">
+        <div><dt>开始时间</dt><dd id="started-at">—</dd></div>
+        <div><dt>退出码</dt><dd id="exit-code">—</dd></div>
+      </dl>
+    </div>
+    <div class="logs-toolbar">
+      <label class="follow-toggle"><input id="follow-logs" type="checkbox" checked><span>自动跟随</span></label>
+      <button id="copy-button" class="button ghost" type="button">复制日志</button>
+    </div>
+  </section>
+
+  <section class="log-console" aria-label="日志内容">
+    <header>
+      <div><span class="console-light"></span><b>EVENT STREAM</b></div>
+      <div class="log-console-meta"><span id="log-count">0 条记录</span><span id="refreshed-at">等待刷新</span></div>
+    </header>
+    <pre id="logs" class="logs-page-output" tabindex="0">等待任务启动</pre>
+  </section>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</main>
+
+<script src="{{ url_for('static', filename='logs.js') }}?v=20260718-1"></script>
+{% endblock %}

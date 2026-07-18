@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oracle-arm-console"
+version = "1.0.0"
+description = "Password-protected web console for provisioning OCI Ampere A1 instances"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "A1 Control contributors" }]
+keywords = ["oracle-cloud", "oci", "ampere", "a1", "infrastructure", "self-hosted"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Framework :: Flask",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+requires-python = ">=3.10"
+dependencies = [
+  "Flask>=3.0,<4",
+  "cryptography>=42,<47",
+  "oci>=2.126,<3",
+  "requests>=2.31,<3",
+  "waitress>=3.0,<4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+oracle-arm-console = "oracle_arm_console.__main__:main"
+dev = "oracle_arm_console.dev:main"
+
+[tool.setuptools.package-data]
+oracle_arm_console = ["templates/*.html", "static/*.css", "static/*.js", "static/*.svg"]
+
+[tool.setuptools.packages.find]
+include = ["oracle_arm_console*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

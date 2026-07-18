@@ -1,0 +1,15 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+data/
+
+# Local tooling and generated reports
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
