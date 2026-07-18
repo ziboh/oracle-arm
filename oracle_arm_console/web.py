@@ -259,18 +259,27 @@ def create_app(
             seq = last_seq
             # First event immediately so the page is not blank while waiting.
             snapshot = manager.status()
-            yield _sse_event(snapshot)
-            seq = int(snapshot.get("seq", seq))
-            while True:
-                # Long-poll style wait: wake on new log lines, else heartbeat every ~15s.
-                snapshot = manager.wait_for_update(seq, timeout=15.0)
-                next_seq = int(snapshot.get("seq", seq))
-                if next_seq != seq:
-                    yield _sse_event(snapshot)
-                    seq = next_seq
-                else:
-                    # Comment heartbeat keeps proxies from closing idle connections.
-                    yield ": keepalive\n\n"
+            try:
+                yield _sse_event(snapshot)
+                seq = int(snapshot.get("seq", seq))
+                # Short waits + frequent yield free Waitress workers soon after the
+                # browser navigates away. A long block with no yield exhausts the
+                # small thread pool and freezes Console / Logs / Settings switching.
+                wait_timeout = 2.0
+                while True:
+                    snapshot = manager.wait_for_update(seq, timeout=wait_timeout)
+                    next_seq = int(snapshot.get("seq", seq))
+                    if next_seq != seq:
+                        yield _sse_event(snapshot)
+                        seq = next_seq
+                    else:
+                        # SSE comment: keeps proxies happy and probes the socket so
+                        # abandoned streams exit within ~wait_timeout of disconnect.
+                        yield ": keepalive\n\n"
+            except GeneratorExit:
+                raise
+            except (BrokenPipeError, ConnectionError, OSError):
+                return
 
         return Response(
             generate(),

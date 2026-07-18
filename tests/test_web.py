@@ -165,6 +165,33 @@ def test_status_stream_requires_login_and_emits_sse():
     assert '"seq":3' in chunk or '"seq": 3' in chunk
 
 
+def test_status_stream_uses_short_wait_and_idle_keepalive():
+    """Abandoned SSE connections must not hold workers for long (page navigation)."""
+    client, manager = make_client()
+    login(client)
+    waits = []
+
+    def record_wait(last_seq, timeout=1.0):
+        waits.append(timeout)
+        return manager.status()
+
+    manager.wait_for_update = record_wait
+    response = client.get("/api/status/stream")
+    assert response.status_code == 200
+    frames = []
+    for index, chunk in enumerate(response.response):
+        if isinstance(chunk, bytes):
+            chunk = chunk.decode("utf-8")
+        frames.append(chunk)
+        if index >= 1:
+            break
+    response.close()
+    assert frames[0].startswith("data: ")
+    assert waits, "stream should poll wait_for_update after the first frame"
+    assert all(timeout <= 2.5 for timeout in waits)
+    assert frames[1].startswith(": keepalive")
+
+
 def test_settings_page_is_separate_and_requires_login():
     client, _ = make_client(ConfiguredFakeCredentialsStore())
     assert client.get("/settings").status_code == 302

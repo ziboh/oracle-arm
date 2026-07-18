@@ -6,6 +6,8 @@ from .web import create_app
 
 
 def main():
+    # Keep the pool small; pagehide + short SSE waits free workers on navigation.
+    # Raise WEB_THREADS only if you intentionally run many concurrent tabs/users.
     serve(
         create_app(),
         host=os.environ.get("WEB_HOST", "127.0.0.1"),

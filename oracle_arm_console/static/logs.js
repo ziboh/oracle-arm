@@ -86,6 +86,25 @@ function stopStatusPolling() {
   }
 }
 
+function clearStatusReconnect() {
+  if (statusReconnectTimer) {
+    clearTimeout(statusReconnectTimer);
+    statusReconnectTimer = null;
+  }
+}
+
+function disconnectStatusStream() {
+  clearStatusReconnect();
+  stopStatusPolling();
+  if (statusEventSource) {
+    statusEventSource.onmessage = null;
+    statusEventSource.onerror = null;
+    statusEventSource.onopen = null;
+    statusEventSource.close();
+    statusEventSource = null;
+  }
+}
+
 function startStatusPolling() {
   stopStatusPolling();
   refreshLogs();
@@ -93,10 +112,7 @@ function startStatusPolling() {
 }
 
 function connectStatusStream() {
-  if (statusEventSource) {
-    statusEventSource.close();
-    statusEventSource = null;
-  }
+  disconnectStatusStream();
   if (typeof EventSource === "undefined") {
     startStatusPolling();
     return;
@@ -114,7 +130,7 @@ function connectStatusStream() {
     source.close();
     if (statusEventSource === source) statusEventSource = null;
     startStatusPolling();
-    if (statusReconnectTimer) clearTimeout(statusReconnectTimer);
+    clearStatusReconnect();
     statusReconnectTimer = setTimeout(() => {
       stopStatusPolling();
       connectStatusStream();
@@ -142,6 +158,13 @@ document.addEventListener("visibilitychange", () => {
   } else {
     refreshLogs();
   }
+});
+
+// Close the long-lived SSE before navigation so Waitress workers are not held
+// by abandoned streams when switching Console / Logs / Settings.
+window.addEventListener("pagehide", disconnectStatusStream);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) connectStatusStream();
 });
 
 connectStatusStream();

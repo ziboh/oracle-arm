@@ -24,7 +24,9 @@
       {% with switch_id='dashboard' %}{% include "_lang_switch.html" %}{% endwith %}
       <form action="{{ url_for('logout') }}" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="button ghost compact-button" type="submit">{{ t('app.logout') }}</button>
+        <button class="icon-button logout-button" type="submit" title="{{ t('app.logout') }}" aria-label="{{ t('app.logout') }}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M16 8l4 4-4 4"/><path d="M9 12h11"/></svg>
+        </button>
       </form>
     </div>
   </div>
@@ -247,24 +249,24 @@
         </header>
         <div class="channel-config-body">
           <fieldset class="editor-channel-fields" data-editor-channel="telegram">
-            <label>{{ t('notify_editor.bot_token') }}<input name="telegram_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_token else 'false' }}" placeholder="{% if defaults.telegram_token %}{{ t('notify_editor.env_provided') }}{% else %}123456:ABC...{% endif %}"><small>{{ t('notify_editor.bot_token_hint') }}</small></label>
+            <label>{{ t('notify_editor.bot_token') }}<input name="telegram_token" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_token else 'false' }}" placeholder="{% if defaults.telegram_token %}{{ t('notify_editor.env_provided') }}{% else %}123456:ABC...{% endif %}"><small>{{ t('notify_editor.bot_token_hint') }}</small></label>
             <label>{{ t('notify_editor.chat_id') }}<input name="telegram_chat_id" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_chat_id else 'false' }}" placeholder="{% if defaults.telegram_chat_id %}{{ t('notify_editor.env_provided') }}{% else %}123456789{% endif %}"></label>
             <label>{{ t('notify_editor.api_host') }}<input name="telegram_api_host" value="{{ defaults.telegram_api_host }}" autocomplete="off"><small>{{ t('notify_editor.api_host_hint') }}</small></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="bark" hidden>
-            <label>{{ t('notify_editor.bark_key') }}<input name="bark_device_key" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.bark_device_key else 'false' }}" placeholder="{% if defaults.bark_device_key %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.bark_key_hint') }}</small></label>
+            <label>{{ t('notify_editor.bark_key') }}<input name="bark_device_key" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.bark_device_key else 'false' }}" placeholder="{% if defaults.bark_device_key %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.bark_key_hint') }}</small></label>
             <label>{{ t('notify_editor.bark_server') }}<input name="bark_server" value="{{ defaults.bark_server }}" autocomplete="off" placeholder="https://api.day.app"></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="pushplus" hidden>
-            <label>{{ t('notify_editor.pushplus_token') }}<input name="pushplus_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.pushplus_token else 'false' }}" placeholder="{% if defaults.pushplus_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.pushplus_token_hint') }}</small></label>
+            <label>{{ t('notify_editor.pushplus_token') }}<input name="pushplus_token" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.pushplus_token else 'false' }}" placeholder="{% if defaults.pushplus_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.pushplus_token_hint') }}</small></label>
             <label>{{ t('notify_editor.pushplus_topic') }}<input name="pushplus_topic" value="{{ defaults.pushplus_topic }}" autocomplete="off" placeholder="{{ t('notify_editor.pushplus_topic_ph') }}"></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="serverchan" hidden>
-            <label>{{ t('notify_editor.serverchan_key') }}<input name="serverchan_sendkey" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.serverchan_sendkey else 'false' }}" placeholder="{% if defaults.serverchan_sendkey %}{{ t('notify_editor.env_provided') }}{% else %}SCT...{% endif %}"><small>{{ t('notify_editor.serverchan_hint') }}</small></label>
+            <label>{{ t('notify_editor.serverchan_key') }}<input name="serverchan_sendkey" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.serverchan_sendkey else 'false' }}" placeholder="{% if defaults.serverchan_sendkey %}{{ t('notify_editor.env_provided') }}{% else %}SCT...{% endif %}"><small>{{ t('notify_editor.serverchan_hint') }}</small></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="gotify" hidden>
             <label>{{ t('notify_editor.gotify_server') }}<input name="gotify_server" value="{{ defaults.gotify_server }}" autocomplete="off" placeholder="https://gotify.example.com"><small>{{ t('notify_editor.gotify_server_hint') }}</small></label>
-            <label>{{ t('notify_editor.gotify_token') }}<input name="gotify_app_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.gotify_app_token else 'false' }}" placeholder="{% if defaults.gotify_app_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"></label>
+            <label>{{ t('notify_editor.gotify_token') }}<input name="gotify_app_token" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.gotify_app_token else 'false' }}" placeholder="{% if defaults.gotify_app_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="ntfy" hidden>
             <label>{{ t('notify_editor.ntfy_server') }}<input name="ntfy_server" value="{{ defaults.ntfy_server }}" autocomplete="off" placeholder="https://ntfy.sh"><small>{{ t('notify_editor.ntfy_server_hint') }}</small></label>
@@ -274,21 +276,20 @@
             <div class="field-pair"><label>{{ t('notify_editor.smtp_server') }}<input name="email_smtp_host" value="{{ defaults.email_smtp_host }}" placeholder="smtp.qq.com"></label><label>{{ t('notify_editor.smtp_port') }}<input name="email_smtp_port" type="number" min="1" max="65535" value="{{ defaults.email_smtp_port }}"></label></div>
             <label>{{ t('notify_editor.smtp_security') }}<span class="select-wrap"><select name="email_security"><option value="starttls" {% if defaults.email_security == "starttls" %}selected{% endif %}>{{ t('notify_editor.starttls') }}</option><option value="ssl" {% if defaults.email_security == "ssl" %}selected{% endif %}>{{ t('notify_editor.ssl_tls') }}</option><option value="none" {% if defaults.email_security == "none" %}selected{% endif %}>{{ t('notify_editor.no_tls') }}</option></select></span></label>
             <label>{{ t('notify_editor.smtp_user') }}<input name="email_username" value="{{ defaults.email_username }}" autocomplete="username" placeholder="your-name@example.com"></label>
-            <label>{{ t('notify_editor.smtp_pass') }}<input name="email_password" type="password" autocomplete="current-password" data-provided="{{ 'true' if defaults.email_password else 'false' }}" placeholder=""><small>{{ t('notify_editor.smtp_pass_hint') }}</small></label>
+            <label>{{ t('notify_editor.smtp_pass') }}<input name="email_password" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.email_password else 'false' }}" placeholder=""><small>{{ t('notify_editor.smtp_pass_hint') }}</small></label>
             <div class="field-pair"><label>{{ t('notify_editor.email_from') }}<input name="email_from" value="{{ defaults.email_from }}" placeholder="your-name@example.com"></label><label>{{ t('notify_editor.email_to') }}<input name="email_to" value="{{ defaults.email_to }}" placeholder="notify@example.com"></label></div>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="webhook" hidden>
             <input name="webhook_provider" type="hidden" value="{{ defaults.webhook_provider }}">
-            <label>{{ t('notify_editor.webhook_url') }}<input name="webhook_url" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.webhook_url else 'false' }}" placeholder="{% if defaults.webhook_url %}{{ t('notify_editor.env_provided') }}{% else %}https://...{% endif %}"><small>{{ t('notify_editor.webhook_url_hint') }}</small></label>
+            <label>{{ t('notify_editor.webhook_url') }}<input name="webhook_url" type="text" autocomplete="off" data-provided="{{ 'true' if defaults.webhook_url else 'false' }}" placeholder="{% if defaults.webhook_url %}{{ t('notify_editor.env_provided') }}{% else %}https://...{% endif %}"><small>{{ t('notify_editor.webhook_url_hint') }}</small></label>
             <p id="webhook-replace-note" class="channel-note">{{ t('notify_editor.webhook_note') }}</p>
           </fieldset>
-          <label class="editor-enabled"><input id="notification-editor-enabled" type="checkbox"><span><b>{{ t('notify_editor.enable_title') }}</b><small>{{ t('notify_editor.enable_hint') }}</small></span></label>
           <p id="notification-editor-error" class="form-error" role="alert"></p>
         </div>
       </section>
     </div>
-    <footer><span class="editor-footer-note">{{ t('notify_editor.footer_note') }}</span><div><button id="test-notification-editor" class="button ghost editor-test-button" type="button">{{ t('notify_editor.send_test') }}</button><button id="cancel-notification-editor" class="button ghost" type="button">{{ t('app.cancel') }}</button><button id="save-notification" class="button primary" type="submit">{{ t('notify_editor.add_to_job') }}</button></div></footer>
+    <footer><div><button id="test-notification-editor" class="button ghost editor-test-button" type="button">{{ t('notify_editor.send_test') }}</button><button id="cancel-notification-editor" class="button ghost" type="button">{{ t('app.cancel') }}</button><button id="save-notification" class="button primary" type="submit">{{ t('notify_editor.add_to_job') }}</button></div></footer>
   </form>
 </dialog>
-<script src="{{ url_for('static', filename='app.js') }}?v=20260718-12"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=20260718-17"></script>
 {% endblock %}

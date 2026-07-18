@@ -23,6 +23,10 @@
   }
 
   function setValueLabel(instance) {
+    if (instance.isLang) {
+      // Language switcher keeps a fixed 文A glyph; never overwrite it with the locale name.
+      return;
+    }
     const option = selectedOption(instance.select);
     const label = option ? optionLabel(option) : "";
     const isPlaceholder = Boolean(
@@ -48,16 +52,22 @@
 
   function placePanel(instance) {
     const rect = instance.trigger.getBoundingClientRect();
-    const minWidth = Math.max(rect.width, instance.isLang ? 132 : 160);
+    const minWidth = Math.max(rect.width, instance.isLang ? 148 : 160);
     const maxHeight = Math.min(280, window.innerHeight * 0.48);
-    const gap = 2;
+    const gap = instance.isLang ? 6 : 2;
     const spaceBelow = window.innerHeight - rect.bottom - gap;
     const spaceAbove = rect.top - gap;
     const preferTop = spaceBelow < Math.min(220, maxHeight) && spaceAbove > spaceBelow;
 
     instance.panel.dataset.placement = preferTop ? "top" : "bottom";
     instance.panel.style.position = "fixed";
-    instance.panel.style.left = `${Math.min(rect.left, window.innerWidth - minWidth - 8)}px`;
+    // Language menu aligns to the right edge of the circular button (like common i18n menus).
+    if (instance.isLang) {
+      const left = Math.max(8, Math.min(rect.right - minWidth, window.innerWidth - minWidth - 8));
+      instance.panel.style.left = `${left}px`;
+    } else {
+      instance.panel.style.left = `${Math.min(rect.left, window.innerWidth - minWidth - 8)}px`;
+    }
     instance.panel.style.right = "auto";
     instance.panel.style.minWidth = `${minWidth}px`;
     instance.panel.style.maxWidth = `${Math.min(window.innerWidth - 16, Math.max(minWidth, rect.width + 40))}px`;
@@ -98,7 +108,17 @@
       button.setAttribute("role", "option");
       button.dataset.value = option.value;
       button.dataset.index = String(option.index);
-      button.textContent = optionLabel(option) || "—";
+
+      const label = document.createElement("span");
+      label.className = "soft-select-option-label";
+      label.textContent = optionLabel(option) || "—";
+      button.append(label);
+      if (instance.isLang) {
+        const mark = document.createElement("span");
+        mark.className = "soft-select-option-check";
+        mark.setAttribute("aria-hidden", "true");
+        button.append(mark);
+      }
 
       const disabled = option.disabled;
       if (disabled) {
@@ -238,19 +258,28 @@
 
     const valueEl = document.createElement("span");
     valueEl.className = "soft-select-value";
-    const chevron = document.createElement("span");
-    chevron.className = "soft-select-chevron";
-    chevron.setAttribute("aria-hidden", "true");
-    trigger.append(valueEl, chevron);
+    if (isLang) {
+      trigger.classList.add("lang-switch-trigger");
+      valueEl.className = "lang-switch-glyph";
+      valueEl.setAttribute("aria-hidden", "true");
+      valueEl.innerHTML = '文<span>A</span>';
+      trigger.append(valueEl);
+    } else {
+      const chevron = document.createElement("span");
+      chevron.className = "soft-select-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      trigger.append(valueEl, chevron);
+    }
 
     const panel = document.createElement("div");
-    panel.className = "soft-select-panel";
+    panel.className = isLang ? "soft-select-panel lang-switch-panel" : "soft-select-panel";
     panel.setAttribute("role", "listbox");
     panel.hidden = true;
     if (select.id) panel.id = `${select.id}-soft-panel`;
     trigger.setAttribute("aria-controls", panel.id || "");
 
     wrap.classList.add("soft-select", ENHANCED);
+    if (isLang) wrap.classList.add("lang-switch-menu");
     wrap.append(trigger, panel);
 
     const instance = {

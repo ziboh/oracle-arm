@@ -190,6 +190,25 @@ function stopStatusPolling() {
   }
 }
 
+function clearStatusReconnect() {
+  if (statusReconnectTimer) {
+    clearTimeout(statusReconnectTimer);
+    statusReconnectTimer = null;
+  }
+}
+
+function disconnectStatusStream() {
+  clearStatusReconnect();
+  stopStatusPolling();
+  if (statusEventSource) {
+    statusEventSource.onmessage = null;
+    statusEventSource.onerror = null;
+    statusEventSource.onopen = null;
+    statusEventSource.close();
+    statusEventSource = null;
+  }
+}
+
 function startStatusPolling() {
   stopStatusPolling();
   refreshStatus();
@@ -197,10 +216,7 @@ function startStatusPolling() {
 }
 
 function connectStatusStream() {
-  if (statusEventSource) {
-    statusEventSource.close();
-    statusEventSource = null;
-  }
+  disconnectStatusStream();
   if (typeof EventSource === "undefined") {
     startStatusPolling();
     return;
@@ -218,7 +234,7 @@ function connectStatusStream() {
     source.close();
     if (statusEventSource === source) statusEventSource = null;
     startStatusPolling();
-    if (statusReconnectTimer) clearTimeout(statusReconnectTimer);
+    clearStatusReconnect();
     statusReconnectTimer = setTimeout(() => {
       stopStatusPolling();
       connectStatusStream();
@@ -235,6 +251,13 @@ document.addEventListener("visibilitychange", () => {
     stopStatusPolling();
     connectStatusStream();
   }
+});
+
+// Close the long-lived SSE before navigation so Waitress workers are not held
+// by abandoned streams when switching Console / Logs / Settings.
+window.addEventListener("pagehide", disconnectStatusStream);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) connectStatusStream();
 });
 
 function setOptions(select, items, valueFor, labelFor, emptyLabel) {
@@ -506,6 +529,7 @@ ui.loadResources.addEventListener("click", () => loadResources(true));
 const notificationRequirements = {telegram: ["telegram_token", "telegram_chat_id"], bark: ["bark_device_key"], pushplus: ["pushplus_token"], serverchan: ["serverchan_sendkey"], gotify: ["gotify_server", "gotify_app_token"], ntfy: ["ntfy_topic"], email: ["email_smtp_host", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_url"]};
 const notificationFieldNames = {telegram: ["telegram_token", "telegram_chat_id", "telegram_api_host"], bark: ["bark_device_key", "bark_server"], pushplus: ["pushplus_token", "pushplus_topic"], serverchan: ["serverchan_sendkey"], gotify: ["gotify_server", "gotify_app_token"], ntfy: ["ntfy_server", "ntfy_topic"], email: ["email_smtp_host", "email_smtp_port", "email_security", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_provider", "webhook_url"]};
 const webhookTypes = ["feishu", "dingtalk", "wecom", "discord", "slack", "generic"];
+const webhookUrlByProvider = Object.fromEntries(webhookTypes.map((name) => [name, ""]));
 const notificationLabels = {telegram: "Telegram", bark: "Bark", pushplus: "PushPlus", serverchan: t("serverchan_label") || "ServerChan", gotify: "Gotify", ntfy: "ntfy", email: t("email_label") || "Email", feishu: t("feishu_label") || "Feishu", dingtalk: t("dingtalk_label") || "DingTalk", wecom: t("wecom_label") || "WeCom", discord: "Discord", slack: "Slack", generic: t("generic_label") || "Webhook"};
 const notificationDescriptions = {telegram: t("telegram_desc"), bark: t("bark_desc"), pushplus: t("pushplus_desc"), serverchan: t("serverchan_desc"), gotify: t("gotify_desc"), ntfy: t("ntfy_desc"), email: t("email_desc"), feishu: t("feishu_desc"), dingtalk: t("dingtalk_desc"), wecom: t("wecom_desc"), discord: t("discord_desc"), slack: t("slack_desc"), generic: t("generic_desc")};
 const notificationIcons = {
@@ -523,7 +547,6 @@ const notificationEditorForm = document.querySelector("#notification-editor-form
 const notificationPicker = document.querySelector("#notification-channel-picker");
 const channelOptions = [...document.querySelectorAll("[data-channel-option]")];
 const editorFields = [...document.querySelectorAll(".editor-channel-fields")];
-const editorEnabled = document.querySelector("#notification-editor-enabled");
 const editorError = document.querySelector("#notification-editor-error");
 const editorTestButton = document.querySelector("#test-notification-editor");
 const selectedChannelGlyph = document.querySelector("#selected-channel-glyph");
@@ -540,6 +563,102 @@ function fieldsFor(name) { return editorFields.find((group) => group.dataset.edi
 function notificationReady(name) { const channel = internalChannel(name); return notificationRequirements[channel].every((fieldName) => notificationEditorForm.elements[fieldName] && notificationFieldReady(notificationEditorForm.elements[fieldName])); }
 function notificationChannels() { return (notificationList.dataset.channels || "").split(",").filter(Boolean); }
 function notificationExists(name) { return notificationChannels().includes(name); }
+const notificationDraftKey = "a1-control-notification-draft";
+
+function stashCurrentWebhookUrl() {
+  const provider = notificationPicker?.value;
+  if (!webhookTypes.includes(provider)) return;
+  const field = notificationEditorForm.elements.webhook_url;
+  if (field) webhookUrlByProvider[provider] = field.value;
+}
+
+function loadWebhookUrlForProvider(provider) {
+  const field = notificationEditorForm.elements.webhook_url;
+  if (!field || !webhookTypes.includes(provider)) return;
+  field.value = webhookUrlByProvider[provider] || "";
+  const envProvider = notificationList.dataset.initialWebhookProvider || "generic";
+  const envConfigured = notificationList.dataset.initialWebhook === "true";
+  // Env-provided secrets only apply to the original provider, not every webhook type.
+  field.dataset.provided = (!field.value && envConfigured && provider === envProvider) ? "true" : "false";
+}
+
+function collectNotificationDraft() {
+  stashCurrentWebhookUrl();
+  const fields = {};
+  Object.values(notificationFieldNames).flat().forEach((fieldName) => {
+    const source = notificationEditorForm.elements[fieldName];
+    if (!source) return;
+    fields[fieldName] = source.type === "checkbox" ? source.checked : source.value;
+  });
+  const enabled = {};
+  ["telegram", "bark", "pushplus", "serverchan", "gotify", "ntfy", "email", "webhook"].forEach((name) => {
+    const source = notificationEditorForm.elements[`${name}_enabled`];
+    if (source) enabled[name] = Boolean(source.checked);
+  });
+  return {
+    saved_at: Date.now(),
+    channels: notificationChannels(),
+    fields,
+    enabled,
+    webhookUrls: { ...webhookUrlByProvider },
+  };
+}
+
+function saveNotificationDraft() {
+  try {
+    localStorage.setItem(notificationDraftKey, JSON.stringify(collectNotificationDraft()));
+  } catch (_) {
+    // Ignore quota / private-mode failures; UI state still works for the current page.
+  }
+}
+
+function readNotificationDraft() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(notificationDraftKey) || "null");
+    if (!cached || typeof cached !== "object") return null;
+    return cached;
+  } catch (_) {
+    return null;
+  }
+}
+
+function applyNotificationDraft(draft) {
+  if (!draft) return;
+  if (draft.webhookUrls && typeof draft.webhookUrls === "object") {
+    webhookTypes.forEach((name) => {
+      if (draft.webhookUrls[name] != null) webhookUrlByProvider[name] = String(draft.webhookUrls[name]);
+    });
+  }
+  const fields = draft.fields || {};
+  // Migrate older drafts that only stored one shared webhook_url.
+  if (fields.webhook_url && !Object.values(webhookUrlByProvider).some(Boolean)) {
+    const provider = fields.webhook_provider || notificationList.dataset.initialWebhookProvider || "generic";
+    if (webhookTypes.includes(provider)) webhookUrlByProvider[provider] = String(fields.webhook_url);
+  }
+  Object.entries(fields).forEach(([fieldName, value]) => {
+    if (fieldName === "webhook_url") return;
+    const source = notificationEditorForm.elements[fieldName];
+    if (!source || source.type === "checkbox") return;
+    // Keep env-provided secrets intact when the draft never captured a typed value.
+    if (!String(value || "").trim() && source.dataset.provided === "true") return;
+    source.value = value == null ? "" : String(value);
+  });
+  const enabled = draft.enabled || {};
+  Object.entries(enabled).forEach(([name, isEnabled]) => {
+    const source = notificationEditorForm.elements[`${name}_enabled`];
+    if (source) source.checked = Boolean(isEnabled);
+  });
+  const savedChannels = Array.isArray(draft.channels) ? draft.channels.filter(Boolean) : [];
+  const merged = new Set([...notificationChannels(), ...savedChannels]);
+  notificationList.dataset.channels = [...merged].join(",");
+  const activeWebhook = [...merged].find((name) => webhookTypes.includes(name));
+  if (activeWebhook) {
+    notificationEditorForm.elements.webhook_provider.value = activeWebhook;
+    loadWebhookUrlForProvider(activeWebhook);
+  }
+  [...merged].forEach((name) => syncNotificationFields(name));
+  disableUnaddedNotificationChannels();
+}
 function syncNotificationFields(name) {
   const channel = internalChannel(name);
   const names = notificationFieldNames[channel];
@@ -549,6 +668,15 @@ function syncNotificationFields(name) {
     if (!target) { target = document.createElement("input"); target.type = "hidden"; target.name = fieldName; ui.startForm.append(target); }
     if (source.type === "checkbox") target.value = source.checked ? "true" : "false";
     else target.value = source.value;
+  });
+}
+// Only channels added to the current job may be enabled for start/test form payloads.
+function disableUnaddedNotificationChannels() {
+  const active = new Set(notificationChannels().map(internalChannel));
+  ["telegram", "bark", "pushplus", "serverchan", "gotify", "ntfy", "email", "webhook"].forEach((name) => {
+    const source = notificationEditorForm.elements[`${name}_enabled`];
+    if (source && !active.has(name)) source.checked = false;
+    syncNotificationFields(name === "webhook" ? "generic" : name);
   });
 }
 function setEditorChannel(name) {
@@ -570,13 +698,17 @@ function setEditorChannel(name) {
   editorError.textContent = "";
 }
 function selectNotificationChannel(name) {
+  if (editingNotification && webhookTypes.includes(editingNotification)) {
+    const field = notificationEditorForm.elements.webhook_url;
+    if (field) webhookUrlByProvider[editingNotification] = field.value;
+  }
   editingNotification = name;
   setEditorChannel(name);
+  if (webhookTypes.includes(name)) loadWebhookUrlForProvider(name);
   const exists = notificationExists(name);
   document.querySelector("#notification-editor-title").textContent = exists ? t("title_edit") : t("title_add");
   document.querySelector("#notification-editor-copy").textContent = exists ? t("copy_edit", {name: notificationLabels[name]}) : t("copy_add", {name: notificationLabels[name]});
   document.querySelector("#save-notification").textContent = exists ? t("save") : t("add_to_job");
-  editorEnabled.checked = notificationEditorForm.elements[`${internalChannel(name)}_enabled`]?.checked || false;
 }
 function renderNotificationCards() {
   notificationList.replaceChildren();
@@ -591,10 +723,11 @@ function renderNotificationCards() {
     if (ready && enabled) enabledCount += 1;
     card.classList.toggle("is-enabled", ready && enabled);
     const state = ready ? (enabled ? t("state_sending") : t("state_paused")) : t("state_incomplete");
-    card.innerHTML = `<div class="notification-card-main"><span class="channel-glyph channel-glyph-${name}">${notificationIcons[name]}</span><div class="channel-copy"><div><b>${notificationLabels[name]}</b><span class="channel-state ${ready && enabled ? "is-on" : ""}">${state}</span></div><small>${notificationDescriptions[name]}</small></div><button class="notification-edit" type="button">${t("edit")}</button></div><div class="notification-card-footer"><label class="channel-toggle"><input type="checkbox" ${enabled ? "checked" : ""} ${ready ? "" : "disabled"}><span class="toggle-switch" aria-hidden="true"><i></i></span><span class="toggle-label"><b>${t("send_with_job")}</b><small>${ready ? t("send_when_ready") : t("finish_channel_first")}</small></span></label><button class="button ghost notification-test" type="button" ${ready ? "" : "disabled"}>${t("send_test")}</button></div>`;
+    card.innerHTML = `<div class="notification-card-main"><span class="channel-glyph channel-glyph-${name}">${notificationIcons[name]}</span><div class="channel-copy"><div><b>${notificationLabels[name]}</b><span class="channel-state ${ready && enabled ? "is-on" : ""}">${state}</span></div><small>${notificationDescriptions[name]}</small></div><div class="notification-card-actions"><label class="channel-toggle" title="${ready ? t("send_when_ready") : t("finish_channel_first")}"><input type="checkbox" ${enabled ? "checked" : ""} ${ready ? "" : "disabled"}><span class="toggle-switch" aria-hidden="true"><i></i></span></label><button class="button notification-test" type="button" ${ready ? "" : "disabled"}>${t("send_test")}</button><button class="button ghost notification-edit" type="button">${t("edit")}</button></div></div>`;
     card.querySelector("input").addEventListener("change", (event) => {
       notificationEditorForm.elements[`${internalChannel(name)}_enabled`].checked = event.target.checked;
       syncNotificationFields(name);
+      saveNotificationDraft();
       renderNotificationCards();
     });
     card.querySelector(".notification-test").addEventListener("click", () => testNotification(name));
@@ -611,6 +744,7 @@ function renderNotificationCards() {
     option.querySelector("i").textContent = configured ? t("added") : "";
   });
 }
+
 function openNotificationEditor(name = "telegram") {
   selectNotificationChannel(name);
   notificationEditor.showModal();
@@ -666,12 +800,18 @@ notificationEditorForm.addEventListener("submit", (event) => {
   const name = notificationPicker.value;
   const existed = notificationExists(name);
   if (!notificationReady(name)) { editorError.textContent = t("fill_required"); fieldsFor(name).querySelector("input").focus(); return; }
-  notificationEditorForm.elements[`${internalChannel(name)}_enabled`].checked = editorEnabled.checked;
+  notificationEditorForm.elements[`${internalChannel(name)}_enabled`].checked = true;
+  if (webhookTypes.includes(name)) {
+    webhookUrlByProvider[name] = notificationEditorForm.elements.webhook_url.value;
+    loadWebhookUrlForProvider(name);
+  }
   syncNotificationFields(name);
   const channels = new Set(notificationChannels());
   if (internalChannel(name) === "webhook") [...channels].filter((item) => webhookTypes.includes(item)).forEach((item) => channels.delete(item));
   channels.add(name);
   notificationList.dataset.channels = [...channels].join(",");
+  disableUnaddedNotificationChannels();
+  saveNotificationDraft();
   renderNotificationCards();
   closeNotificationEditor();
   notify(existed ? t("channel_updated", {name: notificationLabels[name]}) : t("channel_added", {name: notificationLabels[name]}));
@@ -691,7 +831,7 @@ notificationEditor.addEventListener("click", (event) => { if (event.target === n
     });
   }));
   const enabled = document.createElement("input");
-  enabled.type = "checkbox"; enabled.name = `${name}_enabled`; enabled.value = "true"; enabled.hidden = true; enabled.checked = notificationList.dataset[`initial${name[0].toUpperCase()}${name.slice(1)}Enabled`] === "true";
+  enabled.type = "checkbox"; enabled.name = `${name}_enabled`; enabled.value = "true"; enabled.hidden = true; enabled.checked = false;
   notificationEditorForm.append(enabled);
   syncNotificationFields(name);
 });
@@ -703,6 +843,19 @@ if (notificationList.dataset.initialGotify === "true") notificationList.dataset.
 if (notificationList.dataset.initialNtfy === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}ntfy`;
 if (notificationList.dataset.initialEmail === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}email`;
 if (notificationList.dataset.initialWebhook === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}${notificationList.dataset.initialWebhookProvider || "generic"}`;
+const initialWebhookProvider = notificationList.dataset.initialWebhookProvider || "generic";
+if (webhookTypes.includes(initialWebhookProvider)) {
+  const seedUrl = notificationEditorForm.elements.webhook_url?.value || "";
+  if (seedUrl) webhookUrlByProvider[initialWebhookProvider] = seedUrl;
+  else if (notificationList.dataset.initialWebhook === "true") loadWebhookUrlForProvider(initialWebhookProvider);
+}
+// Pre-configured / env channels start enabled; draft may pause them later.
+notificationChannels().forEach((name) => {
+  const source = notificationEditorForm.elements[`${internalChannel(name)}_enabled`];
+  if (source) source.checked = true;
+});
+applyNotificationDraft(readNotificationDraft());
+disableUnaddedNotificationChannels();
 renderNotificationCards();
 
 ui.startForm.addEventListener("submit", async (event) => {
@@ -711,6 +864,7 @@ ui.startForm.addEventListener("submit", async (event) => {
     notify(sshKeyMode === "generate" ? t("download_key_first") : t("paste_pubkey_first"));
     return;
   }
+  disableUnaddedNotificationChannels();
   ui.startButton.disabled = true;
   try {
     const response = await fetch("/api/start", {method: "POST", body: new FormData(ui.startForm)});

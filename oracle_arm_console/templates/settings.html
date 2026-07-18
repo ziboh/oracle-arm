@@ -25,7 +25,9 @@
       {% with switch_id='settings' %}{% include "_lang_switch.html" %}{% endwith %}
       <form action="{{ url_for('logout') }}" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="button ghost compact-button" type="submit">{{ t('app.logout') }}</button>
+        <button class="icon-button logout-button" type="submit" title="{{ t('app.logout') }}" aria-label="{{ t('app.logout') }}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M16 8l4 4-4 4"/><path d="M9 12h11"/></svg>
+        </button>
       </form>
     </div>
   </div>
