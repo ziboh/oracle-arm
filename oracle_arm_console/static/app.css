@@ -198,22 +198,29 @@ code, pre, .status-data dd, .resource-status, .storage-meter strong, .storage-me
   font: inherit;
   font-size: 12px;
   font-weight: 600;
+  height: auto;
   line-height: 1;
   min-height: 34px;
   min-width: 7.5rem;
   padding: 0 28px 0 12px;
-  transition: background .16s ease, border-color .16s ease, color .16s ease;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease;
+  width: auto;
+}
+select.lang-select {
+  height: auto;
+  min-height: 34px;
+  width: auto;
+  font-weight: 600;
 }
 .lang-select:hover {
   background: #fff;
   border-color: #8fa1ab;
 }
-.lang-select:focus {
-  outline: none;
-}
+.lang-select:focus,
 .lang-select:focus-visible {
-  outline: 3px solid rgba(40, 127, 141, .22);
-  outline-offset: 2px;
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px rgba(40, 127, 141, .16);
+  outline: none;
 }
 .topbar-actions .lang-switch {
   gap: 0;
