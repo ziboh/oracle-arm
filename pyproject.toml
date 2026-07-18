@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oracle-arm-console"
-version = "1.0.0"
+version = "1.1.0"
 description = "Password-protected web console for provisioning OCI Ampere A1 instances"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -38,7 +38,14 @@ oracle-arm-console = "oracle_arm_console.__main__:main"
 dev = "oracle_arm_console.dev:main"
 
 [tool.setuptools.package-data]
-oracle_arm_console = ["templates/*.html", "static/*.css", "static/*.js", "static/*.svg"]
+oracle_arm_console = [
+  "templates/*.html",
+  "locales/*.json",
+  "static/*.css",
+  "static/*.js",
+  "static/*.svg",
+  "static/notification-icons/*",
+]
 
 [tool.setuptools.packages.find]
 include = ["oracle_arm_console*"]

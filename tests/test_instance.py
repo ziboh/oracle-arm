@@ -30,5 +30,5 @@ def test_instance_spec_rejects_paid_size():
 
 
 def test_instance_spec_rejects_api_private_key():
-    with pytest.raises(ValueError, match="SSH 公钥"):
+    with pytest.raises(ValueError, match="SSH public key"):
         InstanceSpec.from_form({**VALID_FORM, "ssh_authorized_keys": "-----BEGIN PRIVATE KEY-----"})

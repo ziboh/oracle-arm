@@ -35,16 +35,16 @@ def test_sends_bark_and_feishu_payloads():
             webhook_provider="feishu",
             webhook_url="https://hooks.example.test/robot",
         ),
-        "实例创建成功",
+        "Instance created",
         emit=lambda _: None,
         post=post,
     )
 
     assert calls[0][0] == "https://bark.example.test/device%2Fkey"
-    assert calls[0][1]["json"]["body"] == "实例创建成功"
+    assert calls[0][1]["json"]["body"] == "Instance created"
     assert calls[1][1]["json"] == {
         "msg_type": "text",
-        "content": {"text": "实例创建成功"},
+        "content": {"text": "Instance created"},
     }
 
 
@@ -72,7 +72,7 @@ def test_notification_failure_does_not_stop_other_channels():
     )
 
     assert len(calls) == 2
-    assert logs == ["Telegram 通知发送失败（ConnectionError）", "Bark 通知已发送"]
+    assert logs == ["Telegram notification failed (ConnectionError)", "Bark notification sent"]
     assert "secret-token" not in "".join(logs)
 
 
@@ -95,6 +95,37 @@ def test_generic_webhook_payload():
     )
 
     assert calls[0]["json"] == {"title": "A1 Control", "message": "done"}
+
+
+def test_sends_pushplus_serverchan_gotify_and_ntfy():
+    calls = []
+
+    def post(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+
+    send_notifications(
+        settings(
+            pushplus_enabled=True,
+            pushplus_token="push-token",
+            pushplus_topic="team",
+            serverchan_enabled=True,
+            serverchan_sendkey="SCT-key",
+            gotify_enabled=True,
+            gotify_server="https://gotify.example.test",
+            gotify_app_token="gotify-token",
+            ntfy_enabled=True,
+            ntfy_topic="a1 alerts",
+        ),
+        "done",
+        emit=lambda _: None,
+        post=post,
+    )
+
+    assert calls[0][1]["json"]["topic"] == "team"
+    assert calls[1][0].endswith("/SCT-key.send")
+    assert calls[2][1]["headers"]["X-Gotify-Key"] == "gotify-token"
+    assert calls[3][0].endswith("/a1%20alerts")
 
 
 def test_sends_email_over_starttls():
@@ -138,5 +169,5 @@ def test_sends_email_over_starttls():
     assert client.host == "smtp.example.test"
     assert "starttls" in client.actions
     assert client.actions[1] == ("login", "sender@example.test", "secret")
-    assert client.actions[2]["Subject"] == "A1 Control 任务通知"
+    assert client.actions[2]["Subject"] == "A1 Control job notification"
     assert "done" in client.actions[2].get_content()

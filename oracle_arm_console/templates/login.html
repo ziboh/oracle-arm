@@ -1,20 +1,23 @@
 {% extends "base.html" %}
-{% block title %}登录 · A1 ARM Control{% endblock %}
+{% block title %}{{ t('login.title') }}{% endblock %}
 {% block body %}
 <main class="login-shell">
   <section class="login-panel" aria-labelledby="login-title">
-    <div class="product-lockup"><span class="product-mark"><i></i>A1</span><span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span></div>
+    <div class="login-top-row">
+      <div class="product-lockup"><span class="product-mark"><i></i>A1</span><span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span></div>
+      {% with switch_id='login' %}{% include "_lang_switch.html" %}{% endwith %}
+    </div>
     <div class="login-copy">
-      <p class="eyebrow">OCI / AMPERE OPERATIONS</p>
-      <h1 id="login-title">进入抢注控制台</h1>
-      <p>运行记录和实例凭据仅对已授权用户可见。</p>
+      <p class="eyebrow">{{ t('login.eyebrow') }}</p>
+      <h1 id="login-title">{{ t('login.heading') }}</h1>
+      <p>{{ t('login.subtitle') }}</p>
     </div>
     {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
     <form method="post" class="login-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="password">管理密码</label>
+      <label for="password">{{ t('login.password') }}</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-      <button type="submit" class="button primary">进入控制台</button>
+      <button type="submit" class="button primary">{{ t('login.submit') }}</button>
     </form>
   </section>
   <aside class="login-signal" aria-hidden="true">

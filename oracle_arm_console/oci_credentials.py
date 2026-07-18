@@ -6,6 +6,8 @@ from pathlib import Path
 import oci
 from cryptography.hazmat.primitives import serialization
 
+from .i18n import t
+
 
 REQUIRED_FIELDS = ("user", "fingerprint", "tenancy", "region")
 
@@ -47,7 +49,7 @@ class OciCredentialsStore:
         actual_fingerprint = self._fingerprint(private_key)
         expected_fingerprint = values["fingerprint"].strip().lower()
         if actual_fingerprint != expected_fingerprint:
-            raise ValueError("PEM 私钥与 OCI 配置中的 fingerprint 不匹配")
+            raise ValueError(t("errors.pem_fingerprint"))
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
         key_path = (self.data_dir / "oci_api_key.pem").resolve()
@@ -70,30 +72,30 @@ class OciCredentialsStore:
         try:
             parser.read_string(content)
         except configparser.Error as exc:
-            raise ValueError("配置片段格式无效，请粘贴包含 [DEFAULT] 或 [Profile 名称] 的多行内容") from exc
+            raise ValueError(t("errors.config_format")) from exc
 
         profiles = []
         if parser.defaults():
             profiles.append(parser.default_section)
         profiles.extend(parser.sections())
         if len(profiles) != 1:
-            raise ValueError("配置片段必须且只能包含一个 Profile")
+            raise ValueError(t("errors.config_single_profile"))
 
         profile = profiles[0]
         values = parser.defaults() if profile == parser.default_section else parser[profile]
         missing = [field for field in REQUIRED_FIELDS if not values.get(field, "").strip()]
         if missing:
-            raise ValueError("OCI 配置缺少字段：{}".format(", ".join(missing)))
+            raise ValueError(t("errors.config_missing", fields=", ".join(missing)))
         return profile, values
 
     @staticmethod
     def _load_private_key(content):
         if not content or len(content) > 128 * 1024:
-            raise ValueError("请选择有效的 PEM 私钥文件")
+            raise ValueError(t("errors.pem_invalid_file"))
         try:
             return serialization.load_pem_private_key(content, password=None)
         except (TypeError, ValueError) as exc:
-            raise ValueError("无法读取 PEM 私钥，请使用创建 OCI API Key 时下载的未加密私钥") from exc
+            raise ValueError(t("errors.pem_read_failed")) from exc
 
     @staticmethod
     def _fingerprint(private_key):

@@ -12,8 +12,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /data \
-    && chown appuser:appuser /data
+    && mkdir -p /data /app/data \
+    && chown appuser:appuser /data /app/data
 
 COPY . .
 RUN pip install --no-cache-dir .

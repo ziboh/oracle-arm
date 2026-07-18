@@ -1,30 +1,31 @@
 {% extends "base.html" %}
-{% block title %}设置 · A1 ARM Control{% endblock %}
+{% block title %}{{ t('settings_page.title') }}{% endblock %}
 {% block body %}
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="A1 ARM Control 首页">
+    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="{{ t('app.home_aria') }}">
       <span class="product-mark"><i></i>A1</span>
       <span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span>
     </a>
-    <nav class="topbar-nav" aria-label="主导航">
-      <a href="{{ url_for('dashboard') }}">控制台</a>
-      <a href="{{ url_for('logs') }}">运行日志</a>
-      <a class="is-active" href="{{ url_for('settings') }}" aria-current="page">设置</a>
+    <nav class="topbar-nav" aria-label="{{ t('app.nav_main') }}">
+      <a class="" href="{{ url_for('dashboard') }}">{{ t('app.console') }}</a>
+      <a class="" href="{{ url_for('logs') }}">{{ t('app.logs') }}</a>
+      <a class="is-active" href="{{ url_for('settings') }}" aria-current="page">{{ t('app.settings') }}</a>
     </nav>
     <details class="mobile-menu">
-      <summary><span>设置</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
-      <nav aria-label="窄屏主导航">
-        <a href="{{ url_for('dashboard') }}">控制台</a>
-        <a href="{{ url_for('logs') }}">运行日志</a>
-        <a class="is-active" href="{{ url_for('settings') }}" aria-current="page">设置</a>
+      <summary><span>{{ t('app.settings') }}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
+      <nav aria-label="{{ t('app.nav_mobile') }}">
+        <a class="" href="{{ url_for('dashboard') }}">{{ t('app.console') }}</a>
+        <a class="" href="{{ url_for('logs') }}">{{ t('app.logs') }}</a>
+        <a class="is-active" href="{{ url_for('settings') }}" aria-current="page">{{ t('app.settings') }}</a>
       </nav>
     </details>
-    <div class="topbar-context"><span class="context-dot"></span> Connection and security</div>
+    <div class="topbar-context"><span class="context-dot"></span> {{ t('nav.context_settings') }}</div>
     <div class="topbar-actions">
+      {% with switch_id='settings' %}{% include "_lang_switch.html" %}{% endwith %}
       <form action="{{ url_for('logout') }}" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="button ghost compact-button" type="submit">退出</button>
+        <button class="button ghost compact-button" type="submit">{{ t('app.logout') }}</button>
       </form>
     </div>
   </div>
@@ -33,58 +34,58 @@
 <main class="settings-page-shell">
   <section class="settings-hero" aria-labelledby="settings-page-title">
     <div>
-      <p class="eyebrow">连接与安全</p>
-      <h1 id="settings-page-title">设置</h1>
-      <p>管理控制台的 OCI API 连接和管理员访问凭据。</p>
+      <p class="eyebrow">{{ t('settings_page.eyebrow') }}</p>
+      <h1 id="settings-page-title">{{ t('settings_page.heading') }}</h1>
+      <p>{{ t('settings_page.intro') }}</p>
     </div>
-    <div class="settings-health" aria-label="配置状态">
-      <div id="oci-health-item" class="health-item {{ 'is-ready' if oci_configuration.configured else 'needs-action' }}"><span></span><div><small>OCI API</small><b id="oci-health-text">{{ "已连接" if oci_configuration.configured else "待配置" }}</b></div></div>
-      <div class="health-item is-ready"><span></span><div><small>管理账户</small><b>密码保护</b></div></div>
-      <div class="health-item {{ 'is-ready' if secure_cookie else 'is-neutral' }}"><span></span><div><small>安全 Cookie</small><b>{{ "已启用" if secure_cookie else "由部署环境控制" }}</b></div></div>
+    <div class="settings-health" aria-label="{{ t('settings_page.health_aria') }}">
+      <div id="oci-health-item" class="health-item {{ 'is-ready' if oci_configuration.configured else 'needs-action' }}"><span></span><div><small>{{ t('settings_page.oci_api') }}</small><b id="oci-health-text">{{ t('settings_page.connected') if oci_configuration.configured else t('settings_page.pending') }}</b></div></div>
+      <div class="health-item is-ready"><span></span><div><small>{{ t('settings_page.admin_account') }}</small><b>{{ t('settings_page.password_protected') }}</b></div></div>
+      <div class="health-item {{ 'is-ready' if secure_cookie else 'is-neutral' }}"><span></span><div><small>{{ t('settings_page.secure_cookie') }}</small><b>{{ t('settings_page.enabled') if secure_cookie else t('settings_page.deploy_controlled') }}</b></div></div>
     </div>
   </section>
 
   <div class="settings-grid">
     <section class="settings-card settings-oci-card" aria-labelledby="oci-settings-title">
       <header class="settings-card-header">
-        <div><p class="eyebrow">Oracle Cloud</p><h2 id="oci-settings-title">OCI API 凭据</h2><p>用于读取资源并创建 Ampere A1 实例。</p></div>
-        <span id="oci-status-badge" class="settings-badge {{ 'is-ready' if oci_configuration.configured else 'needs-action' }}">{{ "已配置" if oci_configuration.configured else "待配置" }}</span>
+        <div><p class="eyebrow">{{ t('settings_page.oracle_cloud') }}</p><h2 id="oci-settings-title">{{ t('settings_page.oci_credentials') }}</h2><p>{{ t('settings_page.oci_card_intro') }}</p></div>
+        <span id="oci-status-badge" class="settings-badge {{ 'is-ready' if oci_configuration.configured else 'needs-action' }}">{{ t('settings_page.configured') if oci_configuration.configured else t('settings_page.pending') }}</span>
       </header>
       <div class="credential-summary">
         <span class="credential-glyph">OC</span>
-        <div><b id="oci-profile-name">{{ oci_configuration.profile if oci_configuration.configured else "尚未导入 Profile" }}</b><small id="oci-region-name">{{ oci_configuration.region if oci_configuration.region else "导入配置后显示区域" }}</small></div>
+        <div><b id="oci-profile-name">{{ oci_configuration.profile if oci_configuration.configured else t('settings_page.profile_missing') }}</b><small id="oci-region-name">{{ oci_configuration.region if oci_configuration.region else t('settings_page.region_after_import') }}</small></div>
       </div>
       <form id="settings-oci-form" class="settings-form" enctype="multipart/form-data" data-configured="{{ 'true' if oci_configuration.configured else 'false' }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <label>配置文件片段<textarea name="config_text" rows="9" placeholder="[DEFAULT]&#10;user=ocid1.user...&#10;fingerprint=...&#10;tenancy=ocid1.tenancy...&#10;region=ap-tokyo-1&#10;key_file=&lt;path to your private keyfile&gt;" required></textarea></label>
-        <label>API 私钥文件<span class="pem-picker"><input name="private_key" type="file" accept=".pem,.key,application/x-pem-file" required><small>选择创建 API Key 时下载的未加密 PEM 私钥</small></span></label>
-        <p id="settings-oci-warning" class="credential-warning">{% if oci_configuration.configured %}提交后将同时替换现有配置和 API 私钥，旧私钥不会显示。{% else %}Profile 会从配置片段自动识别，私钥保存在服务器持久化目录。{% endif %}</p>
+        <label>{{ t('dashboard.config_snippet') }}<textarea name="config_text" rows="9" placeholder="[DEFAULT]&#10;user=ocid1.user...&#10;fingerprint=...&#10;tenancy=ocid1.tenancy...&#10;region=ap-tokyo-1&#10;key_file=&lt;path to your private keyfile&gt;" required></textarea></label>
+        <label>{{ t('dashboard.api_private_key') }}<span class="pem-picker"><input name="private_key" type="file" accept=".pem,.key,application/x-pem-file" required><small>{{ t('settings_page.pem_hint') }}</small></span></label>
+        <p id="settings-oci-warning" class="credential-warning">{{ t('settings_page.oci_warning_replace') if oci_configuration.configured else t('settings_page.oci_warning_new') }}</p>
         <p id="settings-oci-error" class="form-error" role="alert"></p>
-        <footer><button class="button primary" type="submit">{{ "替换 OCI 凭据" if oci_configuration.configured else "保存 OCI 凭据" }}</button></footer>
+        <footer><button class="button primary" type="submit">{{ t('settings_page.replace_oci') if oci_configuration.configured else t('settings_page.save_oci') }}</button></footer>
       </form>
     </section>
 
     <div class="settings-side">
       <section class="settings-card" aria-labelledby="password-settings-title">
         <header class="settings-card-header">
-          <div><p class="eyebrow">管理员账户</p><h2 id="password-settings-title">修改管理密码</h2><p>更新后，下一次登录使用新密码。</p></div>
+          <div><p class="eyebrow">{{ t('settings_page.admin_account') }}</p><h2 id="password-settings-title">{{ t('settings_page.change_password') }}</h2><p>{{ t('settings_page.password_intro') }}</p></div>
         </header>
         <form id="settings-password-form" class="settings-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <label>当前密码<input name="current_password" type="password" autocomplete="current-password" required></label>
-          <label>新密码<input name="new_password" type="password" minlength="8" autocomplete="new-password" required><small>至少 8 个字符，建议使用密码管理器生成</small></label>
-          <label>确认新密码<input name="confirm_password" type="password" minlength="8" autocomplete="new-password" required></label>
+          <label>{{ t('settings_page.current_password') }}<input name="current_password" type="password" autocomplete="current-password" required></label>
+          <label>{{ t('settings_page.new_password') }}<input name="new_password" type="password" minlength="8" autocomplete="new-password" required><small>{{ t('settings_page.new_password_hint') }}</small></label>
+          <label>{{ t('settings_page.confirm_password') }}<input name="confirm_password" type="password" minlength="8" autocomplete="new-password" required></label>
           <p id="settings-password-error" class="form-error" role="alert"></p>
-          <footer><button class="button primary" type="submit">保存新密码</button></footer>
+          <footer><button class="button primary" type="submit">{{ t('settings_page.save_password') }}</button></footer>
         </form>
       </section>
 
       <aside class="settings-card security-note" aria-labelledby="security-note-title">
-        <header class="settings-card-header"><div><p class="eyebrow">数据保护</p><h2 id="security-note-title">敏感数据处理</h2></div></header>
+        <header class="settings-card-header"><div><p class="eyebrow">{{ t('settings_page.data_protection') }}</p><h2 id="security-note-title">{{ t('settings_page.sensitive_title') }}</h2></div></header>
         <ul>
-          <li><span>OCI 私钥</span><b>仅保存在服务器</b></li>
-          <li><span>SSH 私钥</span><b>生成后需立即下载</b></li>
-          <li><span>登录会话</span><b>HttpOnly / SameSite=Lax</b></li>
+          <li><span>{{ t('settings_page.oci_key_label') }}</span><b>{{ t('settings_page.oci_key_value') }}</b></li>
+          <li><span>{{ t('settings_page.ssh_key_label') }}</span><b>{{ t('settings_page.ssh_key_value') }}</b></li>
+          <li><span>{{ t('settings_page.session_label') }}</span><b>{{ t('settings_page.session_value') }}</b></li>
         </ul>
       </aside>
     </div>
@@ -92,5 +93,5 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </main>
 
-<script src="{{ url_for('static', filename='settings.js') }}?v=20260718-1"></script>
+<script src="{{ url_for('static', filename='settings.js') }}?v=20260718-2"></script>
 {% endblock %}

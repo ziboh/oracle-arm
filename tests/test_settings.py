@@ -17,7 +17,7 @@ def test_form_settings_are_validated():
 
 
 def test_telegram_requires_credentials():
-    with pytest.raises(ValueError, match="Bot Token"):
+    with pytest.raises(ValueError, match="Bot token"):
         TaskSettings.from_form({
             "retry_interval": "10",
             "oci_profile": "DEFAULT",
@@ -27,7 +27,7 @@ def test_telegram_requires_credentials():
 
 
 def test_bark_and_webhook_are_validated():
-    with pytest.raises(ValueError, match="设备密钥"):
+    with pytest.raises(ValueError, match="Device key"):
         TaskSettings.from_form({
             "retry_interval": "10",
             "telegram_api_host": "api.telegram.org",
@@ -35,7 +35,7 @@ def test_bark_and_webhook_are_validated():
             "bark_server": "https://api.day.app",
         })
 
-    with pytest.raises(ValueError, match="HTTP 或 HTTPS"):
+    with pytest.raises(ValueError, match="HTTP or HTTPS"):
         TaskSettings.from_form({
             "retry_interval": "10",
             "telegram_api_host": "api.telegram.org",
@@ -80,3 +80,25 @@ def test_email_settings_are_validated_and_exported():
     assert settings.email_smtp_port == 465
     assert settings.email_security == "ssl"
     assert settings.as_environment()["EMAIL_ENABLED"] == "true"
+
+
+def test_new_push_channels_are_validated_and_exported():
+    configured = TaskSettings.from_form({
+        "retry_interval": "10",
+        "pushplus_enabled": "true",
+        "pushplus_token": "push-token",
+        "serverchan_enabled": "true",
+        "serverchan_sendkey": "SCT-key",
+        "gotify_enabled": "true",
+        "gotify_server": "https://gotify.example.test",
+        "gotify_app_token": "gotify-token",
+        "ntfy_enabled": "true",
+        "ntfy_server": "https://ntfy.example.test",
+        "ntfy_topic": "a1",
+    })
+
+    environment = configured.as_environment()
+    assert environment["PUSHPLUS_TOKEN"] == "push-token"
+    assert environment["SERVERCHAN_SENDKEY"] == "SCT-key"
+    assert environment["GOTIFY_SERVER"] == "https://gotify.example.test"
+    assert environment["NTFY_TOPIC"] == "a1"

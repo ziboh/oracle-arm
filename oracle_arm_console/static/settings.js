@@ -1,3 +1,17 @@
+const i18n = window.I18N || {};
+function t(key, vars) {
+  let text = i18n[key] || key;
+  if (vars) {
+    Object.keys(vars).forEach((name) => {
+      text = text.split(`{${name}}`).join(String(vars[name]));
+    });
+  }
+  return text;
+}
+function localeTag() {
+  return document.documentElement.lang || "en";
+}
+
 const settingsUi = {
   toast: document.querySelector("#toast"),
   passwordForm: document.querySelector("#settings-password-form"),
@@ -37,9 +51,9 @@ settingsUi.passwordForm.addEventListener("submit", async (event) => {
       return;
     }
     settingsUi.passwordForm.reset();
-    settingsNotify("管理密码已更新");
+    settingsNotify(t("password_updated"));
   } catch (_) {
-    settingsUi.passwordError.textContent = "无法连接到控制台";
+    settingsUi.passwordError.textContent = t("connect_failed");
   } finally {
     submit.disabled = false;
   }
@@ -48,7 +62,7 @@ settingsUi.passwordForm.addEventListener("submit", async (event) => {
 settingsUi.ociForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const replacing = settingsUi.ociForm.dataset.configured === "true";
-  if (replacing && !window.confirm("将替换现有 OCI 配置和 API 私钥，是否继续？")) return;
+  if (replacing && !window.confirm(t("confirm_replace_oci"))) return;
   settingsUi.ociError.textContent = "";
   const submit = settingsUi.ociForm.querySelector('button[type="submit"]');
   submit.disabled = true;
@@ -64,17 +78,17 @@ settingsUi.ociForm.addEventListener("submit", async (event) => {
     }
     settingsUi.ociForm.dataset.configured = "true";
     settingsUi.ociForm.reset();
-    settingsUi.ociBadge.textContent = "已配置";
+    settingsUi.ociBadge.textContent = t("oci_configured");
     settingsUi.ociBadge.className = "settings-badge is-ready";
     settingsUi.ociHealthItem.className = "health-item is-ready";
-    settingsUi.ociHealthText.textContent = "已连接";
+    settingsUi.ociHealthText.textContent = t("oci_connected");
     settingsUi.ociProfile.textContent = data.profile;
     settingsUi.ociRegion.textContent = data.region;
-    settingsUi.ociWarning.textContent = "提交后将同时替换现有配置和 API 私钥，旧私钥不会显示。";
-    submit.textContent = "替换 OCI 凭据";
-    settingsNotify(replacing ? "OCI 凭据已更新" : "OCI 凭据已保存");
+    settingsUi.ociWarning.textContent = t("oci_warning_replace");
+    submit.textContent = t("replace_oci");
+    settingsNotify(replacing ? t("channel_updated", {name: "OCI"}) : t("channel_added", {name: "OCI"}));
   } catch (_) {
-    settingsUi.ociError.textContent = "无法连接到控制台";
+    settingsUi.ociError.textContent = t("connect_failed");
   } finally {
     submit.disabled = false;
   }

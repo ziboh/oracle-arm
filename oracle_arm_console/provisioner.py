@@ -8,10 +8,13 @@ import oci
 from .settings import TaskSettings
 from .instance import InstanceSpec
 from .notifications import send_notifications
+from .i18n import t
 
 
 class Provisioner:
     shape = "VM.Standard.A1.Flex"
+    default_retry_interval_max = 120
+    absolute_retry_interval_max = 300
 
     def __init__(self, spec: InstanceSpec, settings: TaskSettings, emit=print):
         self.spec = spec
@@ -25,13 +28,18 @@ class Provisioner:
     def run(self):
         password = self._password()
         interval = self.settings.retry_interval
+        retry_interval_max = min(
+            max(self.default_retry_interval_max, self.settings.retry_interval),
+            self.absolute_retry_interval_max,
+        )
         attempts = 0
         self.emit(
-            "目标：{} / {} OCPU / {} GB 内存 / {} GB 启动盘".format(
-                self.spec.display_name,
-                self.spec.ocpus,
-                self.spec.memory_in_gbs,
-                self.spec.boot_volume_size_in_gbs,
+            t(
+                "job.target",
+                name=self.spec.display_name,
+                ocpus=self.spec.ocpus,
+                memory=self.spec.memory_in_gbs,
+                boot=self.spec.boot_volume_size_in_gbs,
             )
         )
         while True:
@@ -39,31 +47,31 @@ class Provisioner:
             try:
                 instance = self.compute.launch_instance(self._launch_details(password)).data
             except oci.exceptions.RequestException as exc:
-                interval = min(interval + 10, 60)
+                interval = min(interval + 10, retry_interval_max)
                 self.emit(
-                    "OCI 网络请求失败（{}），{} 秒后重试".format(
-                        type(exc).__name__, interval
-                    )
+                    t("job.network_retry", error=type(exc).__name__, seconds=interval)
                 )
                 time.sleep(interval)
                 continue
             except oci.exceptions.ServiceError as exc:
                 if self._out_of_capacity(exc):
-                    self.emit("第 {} 次请求：暂无可用容量，{} 秒后重试".format(attempts, interval))
+                    self.emit(t("job.no_capacity", attempt=attempts, seconds=interval))
                     time.sleep(interval)
                     continue
                 if exc.status == 429:
-                    interval = min(interval + 10, 60)
-                    self.emit("请求受到限速，重试间隔调整为 {} 秒".format(interval))
+                    interval = min(interval + 10, retry_interval_max)
+                    self.emit(t("job.rate_limited", seconds=interval))
                     time.sleep(interval)
                     continue
                 raise
 
             public_ip = self._wait_for_public_ip(instance.id)
-            result = (
-                "实例创建成功\n名称：{}\n公网 IP：{}\nroot 密码：{}\n尝试次数：{}".format(
-                    self.spec.display_name, public_ip or "尚未分配", password, attempts
-                )
+            result = t(
+                "job.success",
+                name=self.spec.display_name,
+                ip=public_ip or t("job.ip_pending"),
+                password=password,
+                attempts=attempts,
             )
             self.emit(result)
             send_notifications(self.settings, result, self.emit)

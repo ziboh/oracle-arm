@@ -69,12 +69,12 @@ def test_rejects_multiple_profiles(tmp_path):
     config, pem = make_credentials()
     config += "\n[ARM]\nregion=ap-tokyo-1\n"
 
-    with pytest.raises(ValueError, match="只能包含一个 Profile"):
+    with pytest.raises(ValueError, match="exactly one profile"):
         OciCredentialsStore(tmp_path).save(config, pem)
 
 
 def test_rejects_mismatched_private_key(tmp_path):
     config, _ = make_credentials()
     _, other_pem = make_credentials()
-    with pytest.raises(ValueError, match="fingerprint 不匹配"):
+    with pytest.raises(ValueError, match="fingerprint"):
         OciCredentialsStore(tmp_path).save(config, other_pem)

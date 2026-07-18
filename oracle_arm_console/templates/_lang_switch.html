@@ -1,0 +1,15 @@
+<form class="lang-switch" method="get" action="{{ url_for('set_language') }}" data-lang-switch>
+  <input type="hidden" name="next" value="{{ request.path }}">
+  <label class="lang-switch-label" for="lang-select-{{ switch_id }}">{{ t('app.language') }}</label>
+  <span class="lang-select-wrap">
+    <select id="lang-select-{{ switch_id }}"
+            class="lang-select"
+            name="lang"
+            aria-label="{{ t('app.language') }}"
+            onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()">
+      {% for item in locale_choices %}
+      <option value="{{ item.code }}" {% if item.code == locale %}selected{% endif %} lang="{{ item.code }}">{{ item.name }}</option>
+      {% endfor %}
+    </select>
+  </span>
+</form>

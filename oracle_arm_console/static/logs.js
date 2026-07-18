@@ -1,3 +1,17 @@
+const i18n = window.I18N || {};
+function t(key, vars) {
+  let text = i18n[key] || key;
+  if (vars) {
+    Object.keys(vars).forEach((name) => {
+      text = text.split(`{${name}}`).join(String(vars[name]));
+    });
+  }
+  return text;
+}
+function localeTag() {
+  return document.documentElement.lang || "en";
+}
+
 const logUi = {
   statusText: document.querySelector("#status-text"),
   statusDot: document.querySelector("#status-dot"),
@@ -12,9 +26,14 @@ const logUi = {
 };
 
 let toastTimer;
+let statusEventSource = null;
+let statusPollTimer = null;
+let statusReconnectTimer = null;
+
+const beijingTimeOptions = {timeZone: "Asia/Shanghai"};
 
 function formatTime(value) {
-  return value ? new Date(value).toLocaleString() : "—";
+  return value ? new Date(value).toLocaleString(localeTag(), beijingTimeOptions) : (t("dash") || "—");
 }
 
 function notify(message) {
@@ -24,43 +43,105 @@ function notify(message) {
   toastTimer = setTimeout(() => logUi.toast.classList.remove("visible"), 2400);
 }
 
+function applyStatus(data) {
+  if (!data || typeof data !== "object") return;
+  const entries = Array.isArray(data.logs) ? data.logs : [];
+  const wasNearBottom = logUi.logs.scrollHeight - logUi.logs.scrollTop - logUi.logs.clientHeight < 64;
+
+  logUi.statusText.textContent = data.running
+    ? t("status_running")
+    : data.state === "idle"
+      ? t("status_idle")
+      : t("status_finished");
+  logUi.statusDot.classList.toggle("running", !!data.running);
+  document.body.classList.toggle("task-running", !!data.running);
+  logUi.startedAt.textContent = formatTime(data.started_at);
+  logUi.exitCode.textContent =
+    data.exit_code === null || data.exit_code === undefined ? "—" : String(data.exit_code);
+  logUi.logs.textContent = entries.length ? entries.join("\n") : t("waiting_start");
+  logUi.logCount.textContent = t("record_count", {count: entries.length});
+  logUi.refreshedAt.textContent = t("updated_at", {
+    time: new Date().toLocaleTimeString(localeTag(), beijingTimeOptions),
+  });
+
+  if (logUi.follow.checked || wasNearBottom) logUi.logs.scrollTop = logUi.logs.scrollHeight;
+}
+
 async function refreshLogs() {
   try {
     const response = await fetch("/api/status", {headers: {Accept: "application/json"}});
     if (!response.ok) throw new Error("status request failed");
-    const data = await response.json();
-    const entries = Array.isArray(data.logs) ? data.logs : [];
-    const wasNearBottom = logUi.logs.scrollHeight - logUi.logs.scrollTop - logUi.logs.clientHeight < 64;
-
-    logUi.statusText.textContent = data.running ? "抢注进行中" : data.state === "idle" ? "等待启动" : "任务已结束";
-    logUi.statusDot.classList.toggle("running", data.running);
-    document.body.classList.toggle("task-running", data.running);
-    logUi.startedAt.textContent = formatTime(data.started_at);
-    logUi.exitCode.textContent = data.exit_code === null ? "—" : String(data.exit_code);
-    logUi.logs.textContent = entries.length ? entries.join("\n") : "等待任务启动";
-    logUi.logCount.textContent = `${entries.length} 条记录`;
-    logUi.refreshedAt.textContent = `更新于 ${new Date().toLocaleTimeString()}`;
-
-    if (logUi.follow.checked || wasNearBottom) logUi.logs.scrollTop = logUi.logs.scrollHeight;
+    applyStatus(await response.json());
   } catch (_) {
-    logUi.statusText.textContent = "连接已中断";
+    logUi.statusText.textContent = t("status_disconnected");
     logUi.statusDot.classList.remove("running");
-    logUi.refreshedAt.textContent = "刷新失败";
+    logUi.refreshedAt.textContent = t("refresh_failed");
   }
+}
+
+function stopStatusPolling() {
+  if (statusPollTimer) {
+    clearInterval(statusPollTimer);
+    statusPollTimer = null;
+  }
+}
+
+function startStatusPolling() {
+  stopStatusPolling();
+  refreshLogs();
+  statusPollTimer = setInterval(refreshLogs, 2000);
+}
+
+function connectStatusStream() {
+  if (statusEventSource) {
+    statusEventSource.close();
+    statusEventSource = null;
+  }
+  if (typeof EventSource === "undefined") {
+    startStatusPolling();
+    return;
+  }
+  const source = new EventSource("/api/status/stream");
+  statusEventSource = source;
+  source.onmessage = (event) => {
+    try {
+      applyStatus(JSON.parse(event.data));
+    } catch (_) {
+      /* ignore malformed frames */
+    }
+  };
+  source.onerror = () => {
+    source.close();
+    if (statusEventSource === source) statusEventSource = null;
+    startStatusPolling();
+    if (statusReconnectTimer) clearTimeout(statusReconnectTimer);
+    statusReconnectTimer = setTimeout(() => {
+      stopStatusPolling();
+      connectStatusStream();
+    }, 5000);
+  };
+  source.onopen = () => {
+    stopStatusPolling();
+  };
 }
 
 logUi.copy.addEventListener("click", async () => {
   try {
     await navigator.clipboard.writeText(logUi.logs.textContent);
-    notify("运行日志已复制");
+    notify(t("logs_copied"));
   } catch (_) {
-    notify("复制失败，请手动选择日志");
+    notify(t("copy_failed"));
   }
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshLogs();
+  if (document.hidden) return;
+  if (!statusEventSource || statusEventSource.readyState === EventSource.CLOSED) {
+    stopStatusPolling();
+    connectStatusStream();
+  } else {
+    refreshLogs();
+  }
 });
 
-refreshLogs();
-setInterval(refreshLogs, 2000);
+connectStatusStream();

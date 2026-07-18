@@ -2,6 +2,8 @@ import os
 
 import oci
 
+from .i18n import t
+
 
 def load_oci_resources(settings):
     config_path = os.path.expanduser(settings.oci_config_file)
@@ -14,7 +16,7 @@ def load_oci_resources(settings):
     block_storage = oci.core.BlockstorageClient(config)
     tenancy = identity.get_tenancy(config["tenancy"]).data
 
-    compartments = [{"id": tenancy.id, "name": "根区间 / {}".format(tenancy.name)}]
+    compartments = [{"id": tenancy.id, "name": t("errors.root_compartment", name=tenancy.name)}]
     children = oci.pagination.list_call_get_all_results(
         identity.list_compartments,
         compartment_id=tenancy.id,

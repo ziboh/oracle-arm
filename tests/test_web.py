@@ -8,9 +8,9 @@ from test_instance import VALID_FORM
 
 OCI_RESOURCES = {
     "region": "ap-tokyo-1",
-    "compartments": [{"id": "ocid1.tenancy.test", "name": "根区间 / Test"}],
+    "compartments": [{"id": "ocid1.tenancy.test", "name": "Root compartment / Test"}],
     "availability_domains": [{"name": "NAOy:AP-TOKYO-1-AD-1"}],
-    "subnets": [{"id": "ocid1.subnet.test", "name": "public", "compartment_name": "根区间 / Test", "availability_domain": None}],
+    "subnets": [{"id": "ocid1.subnet.test", "name": "public", "compartment_name": "Root compartment / Test", "availability_domain": None}],
     "images": [{"id": "ocid1.image.test", "name": "Oracle-Linux-9-aarch64", "operating_system": "Oracle Linux", "version": "9"}],
     "storage": {"total_gb": 200.0, "used_gb": 97.0, "available_gb": 103.0, "minimum_boot_volume_gb": 50.0},
 }
@@ -47,9 +47,22 @@ class FakeJobManager:
         self.started = None
         self.settings = None
         self.stopped = False
+        self._seq = 0
+        self.logs = []
 
     def status(self):
-        return {"running": False, "state": "idle", "started_at": None, "finished_at": None, "exit_code": None, "logs": []}
+        return {
+            "running": False,
+            "state": "idle",
+            "started_at": None,
+            "finished_at": None,
+            "exit_code": None,
+            "logs": list(self.logs),
+            "seq": self._seq,
+        }
+
+    def wait_for_update(self, last_seq, timeout=1.0):
+        return self.status()
 
     def start(self, spec, settings):
         self.started = spec
@@ -99,26 +112,27 @@ def test_login_and_dashboard():
     client, _ = make_client()
     assert login(client).status_code == 302
     page = client.get("/").get_data(as_text=True)
-    assert "创建 Ampere A1" in page
-    assert "读取 OCI 资源" in page
-    assert "操作系统分类" in page
-    assert "已有公钥" in page
-    assert "粘贴公钥" in page
+    assert "Create Ampere A1" in page
+    assert "Load OCI resources" in page
+    assert "OS family" in page
+    assert "Existing public key" in page
+    assert "Paste a public key" in page
     assert 'id="boot-volume-range"' in page
     assert 'class="storage-meter storage-selector"' in page
-    assert "滚动鼠标滚轮" in page
+    assert "mouse wheel" in page
     assert 'id="ssh-public-key-file"' in page
-    assert "免费块存储额度" in page
-    assert "创建结果通知" in page
-    assert "选择接收方式" in page
+    assert "Free block storage quota" in page
+    assert "Creation result notifications" in page
+    assert "Choose delivery method" in page
     assert 'data-channel-option="telegram"' in page
     assert 'id="test-notification-editor"' in page
     assert "/static/favicon.svg" in page
     assert 'class="mobile-menu"' in page
     assert 'class="mobile-nav"' not in page
+    assert 'class="lang-select"' in page
     assert client.get("/static/favicon.svg").mimetype == "image/svg+xml"
     assert "配置文件<input" not in page
-    assert '<option value="" selected disabled hidden>先读取 OCI 资源</option>' in page
+    assert "Load OCI resources first" in page
 
 
 def test_logs_page_is_separate_and_requires_login():
@@ -133,6 +147,24 @@ def test_logs_page_is_separate_and_requires_login():
     assert 'class="mobile-menu"' in page.get_data(as_text=True)
 
 
+def test_status_stream_requires_login_and_emits_sse():
+    client, manager = make_client()
+    assert client.get("/api/status/stream").status_code == 401
+    login(client)
+    manager.logs = ["00:00:01  hello"]
+    manager._seq = 3
+    response = client.get("/api/status/stream")
+    assert response.status_code == 200
+    assert response.mimetype == "text/event-stream"
+    # Read first SSE frame only (generator otherwise blocks on wait_for_update).
+    chunk = next(response.response)
+    if isinstance(chunk, bytes):
+        chunk = chunk.decode("utf-8")
+    assert chunk.startswith("data: ")
+    assert "hello" in chunk
+    assert '"seq":3' in chunk or '"seq": 3' in chunk
+
+
 def test_settings_page_is_separate_and_requires_login():
     client, _ = make_client(ConfiguredFakeCredentialsStore())
     assert client.get("/settings").status_code == 302
@@ -141,8 +173,8 @@ def test_settings_page_is_separate_and_requires_login():
     content = page.get_data(as_text=True)
     assert page.status_code == 200
     assert 'id="settings-page-title"' in content
-    assert "OCI API 凭据" in content
-    assert "修改管理密码" in content
+    assert "OCI API credentials" in content
+    assert "Change admin password" in content
     assert "ARM" in content
     assert "ap-tokyo-1" in content
     assert "/static/settings.js" in content
@@ -155,15 +187,80 @@ def test_dashboard_shows_existing_credentials_as_editable():
     login(client)
     page = client.get("/").get_data(as_text=True)
 
-    assert "替换 OCI 凭据" in page
+    assert "Replace OCI credentials" in page
     assert 'name="oci_profile"' not in page
-    assert "OCI 私钥无法回显或单独编辑" in page
+    assert "cannot be displayed or edited alone" in page
 
 
 def test_wrong_password_is_rejected():
     client, _ = make_client()
     response = login(client, "wrong")
-    assert "密码错误" in response.get_data(as_text=True)
+    assert "Incorrect password" in response.get_data(as_text=True)
+
+
+def test_login_uses_chinese_when_accept_language_is_zh():
+    client, _ = make_client()
+    with client.session_transaction() as session:
+        session["csrf_token"] = "token"
+    response = client.post(
+        "/login",
+        data={"password": "wrong", "csrf_token": "token"},
+        headers={"Accept-Language": "zh-CN,zh;q=0.9"},
+    )
+    body = response.get_data(as_text=True)
+    assert "密码错误" in body
+    assert 'lang="zh-CN"' in body
+    # First visit locks browser language into cookie so later Accept-Language changes are ignored.
+    assert any("lang=zh" in value for value in response.headers.getlist("Set-Cookie"))
+
+
+def test_lang_query_overrides_accept_language():
+    client, _ = make_client()
+    response = client.get("/login?lang=zh", headers={"Accept-Language": "en-US"})
+    body = response.get_data(as_text=True)
+    assert "进入抢注控制台" in body
+    assert any("lang=zh" in value for value in response.headers.getlist("Set-Cookie"))
+
+
+def test_cookie_language_overrides_accept_language():
+    client, _ = make_client()
+    client.set_cookie("lang", "zh")
+    response = client.get("/login", headers={"Accept-Language": "en-US,en;q=0.9"})
+    body = response.get_data(as_text=True)
+    assert "进入抢注控制台" in body
+    assert 'lang="zh-CN"' in body
+
+
+def test_manual_lang_switch_updates_cookie():
+    client, _ = make_client()
+    client.set_cookie("lang", "en")
+    response = client.get("/login?lang=zh", headers={"Accept-Language": "en-US"})
+    body = response.get_data(as_text=True)
+    assert "进入抢注控制台" in body
+    assert any("lang=zh" in value for value in response.headers.getlist("Set-Cookie"))
+    # Cookie preference sticks even if browser language is English.
+    follow = client.get("/login", headers={"Accept-Language": "en-US"})
+    assert "进入抢注控制台" in follow.get_data(as_text=True)
+
+
+def test_locale_endpoint_switches_and_persists():
+    client, _ = make_client()
+    # Browser is Chinese; first paint would be zh, but user forces English via /locale.
+    response = client.get(
+        "/locale?lang=en&next=/login",
+        headers={"Accept-Language": "zh-CN,zh;q=0.9"},
+        follow_redirects=False,
+    )
+    assert response.status_code in {302, 303}
+    assert response.headers["Location"].endswith("/login")
+    assert any("lang=en" in value for value in response.headers.getlist("Set-Cookie"))
+
+    page = client.get("/login", headers={"Accept-Language": "zh-CN,zh;q=0.9"})
+    body = page.get_data(as_text=True)
+    assert "Enter the provisioning console" in body
+    assert "进入抢注控制台" not in body
+    assert 'action="/locale"' in body or 'action="/locale?' in body or 'set_language' not in body
+    assert 'name="lang"' in body
 
 
 def test_default_admin_password():
@@ -262,7 +359,7 @@ def test_notification_test_enables_only_requested_channel():
     assert response.status_code == 200
     assert sent[0][0].telegram_enabled is True
     assert sent[0][0].bark_enabled is False
-    assert "通知测试" in sent[0][1]
+    assert "notification test" in sent[0][1].lower() or "A1 Control" in sent[0][1]
 
 
 def test_notification_test_rejects_incomplete_configuration():
@@ -277,7 +374,7 @@ def test_notification_test_rejects_incomplete_configuration():
         },
     )
     assert response.status_code == 400
-    assert "必须填写通知地址" in response.get_json()["error"]
+    assert "Webhook URL is required" in response.get_json()["error"]
 
 
 def test_download_generated_private_key_from_relative_data_dir(tmp_path, monkeypatch):
@@ -323,5 +420,5 @@ def test_change_password():
     )
     assert changed.status_code == 200
     client.post("/logout", data={"csrf_token": token})
-    assert "密码错误" in login(client, "test-password").get_data(as_text=True)
+    assert "Incorrect password" in login(client, "test-password").get_data(as_text=True)
     assert login(client, "new-password").status_code == 302

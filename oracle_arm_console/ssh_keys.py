@@ -8,6 +8,8 @@ from pathlib import Path
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from .i18n import t
+
 
 KEY_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{24}")
 
@@ -43,10 +45,10 @@ class SshKeyStore:
 
     def path_for(self, key_id):
         if not KEY_ID_PATTERN.fullmatch(key_id):
-            raise ValueError("SSH 密钥编号无效")
+            raise ValueError(t("errors.ssh_id_invalid"))
         path = self._path(key_id)
         if not path.is_file():
-            raise FileNotFoundError("SSH 私钥不存在")
+            raise FileNotFoundError(t("errors.ssh_missing"))
         return path
 
     def _path(self, key_id):

@@ -32,6 +32,9 @@ services:
       EMAIL_TO: ${EMAIL_TO:-}
     volumes:
       - oracle-arm-data:/data
+      # JobManager writes task state relative to /app, so keep it on the
+      # same persistent volume as the configured /data directory.
+      - oracle-arm-data:/app/data
 
 volumes:
   oracle-arm-data:

@@ -1,3 +1,17 @@
+const i18n = window.I18N || {};
+function t(key, vars) {
+  let text = i18n[key] || key;
+  if (vars) {
+    Object.keys(vars).forEach((name) => {
+      text = text.split(`{${name}}`).join(String(vars[name]));
+    });
+  }
+  return text;
+}
+function localeTag() {
+  return document.documentElement.lang || "en";
+}
+
 const ui = {
   statusText: document.querySelector("#status-text"),
   statusDot: document.querySelector("#status-dot"),
@@ -113,7 +127,7 @@ function notify(message) {
 }
 
 function formatTime(value) {
-  return value ? new Date(value).toLocaleString() : "—";
+  return value ? new Date(value).toLocaleString(localeTag(), {timeZone: "Asia/Shanghai"}) : t("dash") || "—";
 }
 
 function sshKeyReady() {
@@ -124,11 +138,11 @@ function syncManualPublicKey() {
   uploadedPublicKey = normalizePublicKey(ui.sshKeys.value);
   const valid = isValidPublicKey(uploadedPublicKey);
   if (uploadedPublicKey && !valid) {
-    setUploadKeyStatus("格式无效：请输入 ssh-ed25519、ssh-rsa 或 ECDSA 公钥", false);
+    setUploadKeyStatus(t("invalid_pubkey"), false);
   } else if (valid) {
-    setUploadKeyStatus("公钥已就绪，可直接开始创建", true);
+    setUploadKeyStatus(t("pubkey_ready"), true);
   } else {
-    setUploadKeyStatus("请在上方文本框中粘贴公钥，不要填写私钥");
+    setUploadKeyStatus(t("pubkey_paste"));
   }
   updateStartAvailability();
 }
@@ -137,28 +151,91 @@ function updateStartAvailability(running = false) {
   ui.startButton.disabled = running || ui.instanceFields.disabled || !sshKeyReady();
 }
 
+function applyStatus(data) {
+  if (!data || typeof data !== "object") return;
+  ui.statusText.textContent = data.running ? t("status_running") : data.state === "idle" ? t("status_idle") : t("status_finished");
+  ui.statusDot.classList.toggle("running", !!data.running);
+  document.body.classList.toggle("task-running", !!data.running);
+  ui.startedAt.textContent = formatTime(data.started_at);
+  ui.exitCode.textContent = data.exit_code === null || data.exit_code === undefined ? "—" : String(data.exit_code);
+  updateStartAvailability(!!data.running);
+  ui.loadResources.disabled = !!data.running;
+  ui.instanceFields.disabled = !!data.running || !ui.instanceFields.dataset.ready;
+  ui.stopButton.disabled = !data.running;
+  const entries = Array.isArray(data.logs) ? data.logs : [];
+  const stickToBottom = ui.logs.scrollHeight - ui.logs.scrollTop - ui.logs.clientHeight < 48;
+  ui.logs.textContent = entries.length ? entries.join("\n") : t("waiting_start");
+  if (stickToBottom) ui.logs.scrollTop = ui.logs.scrollHeight;
+}
+
 async function refreshStatus() {
   try {
     const response = await fetch("/api/status", {headers: {Accept: "application/json"}});
     if (!response.ok) return;
-    const data = await response.json();
-    ui.statusText.textContent = data.running ? "抢注进行中" : data.state === "idle" ? "等待启动" : "任务已结束";
-    ui.statusDot.classList.toggle("running", data.running);
-    document.body.classList.toggle("task-running", data.running);
-    ui.startedAt.textContent = formatTime(data.started_at);
-    ui.exitCode.textContent = data.exit_code === null ? "—" : String(data.exit_code);
-    updateStartAvailability(data.running);
-    ui.loadResources.disabled = data.running;
-    ui.instanceFields.disabled = data.running || !ui.instanceFields.dataset.ready;
-    ui.stopButton.disabled = !data.running;
-    const stickToBottom = ui.logs.scrollHeight - ui.logs.scrollTop - ui.logs.clientHeight < 48;
-    ui.logs.textContent = data.logs.length ? data.logs.join("\n") : "等待任务启动";
-    if (stickToBottom) ui.logs.scrollTop = ui.logs.scrollHeight;
+    applyStatus(await response.json());
   } catch (_) {
-    ui.statusText.textContent = "连接已中断";
+    ui.statusText.textContent = t("status_disconnected");
     ui.statusDot.classList.remove("running");
   }
 }
+
+let statusEventSource = null;
+let statusPollTimer = null;
+let statusReconnectTimer = null;
+
+function stopStatusPolling() {
+  if (statusPollTimer) {
+    clearInterval(statusPollTimer);
+    statusPollTimer = null;
+  }
+}
+
+function startStatusPolling() {
+  stopStatusPolling();
+  refreshStatus();
+  statusPollTimer = setInterval(refreshStatus, 2000);
+}
+
+function connectStatusStream() {
+  if (statusEventSource) {
+    statusEventSource.close();
+    statusEventSource = null;
+  }
+  if (typeof EventSource === "undefined") {
+    startStatusPolling();
+    return;
+  }
+  const source = new EventSource("/api/status/stream");
+  statusEventSource = source;
+  source.onmessage = (event) => {
+    try {
+      applyStatus(JSON.parse(event.data));
+    } catch (_) {
+      /* ignore malformed frames */
+    }
+  };
+  source.onerror = () => {
+    source.close();
+    if (statusEventSource === source) statusEventSource = null;
+    startStatusPolling();
+    if (statusReconnectTimer) clearTimeout(statusReconnectTimer);
+    statusReconnectTimer = setTimeout(() => {
+      stopStatusPolling();
+      connectStatusStream();
+    }, 5000);
+  };
+  source.onopen = () => {
+    stopStatusPolling();
+  };
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (!statusEventSource || statusEventSource.readyState === EventSource.CLOSED) {
+    stopStatusPolling();
+    connectStatusStream();
+  }
+});
 
 function setOptions(select, items, valueFor, labelFor, emptyLabel) {
   const placeholder = new Option(emptyLabel, "", true, true);
@@ -166,6 +243,11 @@ function setOptions(select, items, valueFor, labelFor, emptyLabel) {
   placeholder.hidden = true;
   select.replaceChildren(placeholder);
   items.forEach((item) => select.add(new Option(labelFor(item), valueFor(item))));
+  if (window.SoftSelect) window.SoftSelect.refresh(select);
+}
+
+function refreshSoftSelect(select) {
+  if (window.SoftSelect) window.SoftSelect.refresh(select);
 }
 
 function imageFamilyLabel(name) {
@@ -179,12 +261,13 @@ function populateImages(family) {
     images,
     (item) => item.id,
     (item) => `${item.version} · ${item.name}`,
-    "选择具体镜像",
+    t("choose_image"),
   );
   const preferred = family === "Oracle Linux"
     ? images.findIndex((item) => String(item.version).startsWith("9"))
     : 0;
   ui.image.selectedIndex = images.length ? Math.max(preferred, 0) + 1 : 0;
+  refreshSoftSelect(ui.image);
 }
 
 ui.imageFamily.addEventListener("change", () => populateImages(ui.imageFamily.value));
@@ -192,7 +275,7 @@ ui.imageFamily.addEventListener("change", () => populateImages(ui.imageFamily.va
 async function generateSshKey() {
   ui.regenerateSshKey.disabled = true;
   ui.downloadSshKey.hidden = true;
-  ui.sshKeyStatus.textContent = "正在生成 Ed25519 密钥...";
+  ui.sshKeyStatus.textContent = t("generating_key");
   privateKeyDownloaded = false;
   ui.startButton.disabled = true;
   try {
@@ -200,13 +283,13 @@ async function generateSshKey() {
     form.append("csrf_token", ui.startForm.elements.csrf_token.value);
     const response = await fetch("/api/ssh-keys", {method: "POST", body: form});
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "生成 SSH 密钥失败");
+    if (!response.ok) throw new Error(data.error || t("generate_key_failed"));
     generatedKeyId = data.id;
     generatedPublicKey = data.public_key;
     if (sshKeyMode === "generate") ui.sshKeys.value = generatedPublicKey;
     ui.downloadSshKey.href = data.download_url;
     ui.downloadSshKey.hidden = false;
-    ui.sshKeyStatus.textContent = `${data.fingerprint} · 请下载私钥`;
+    ui.sshKeyStatus.textContent = t("download_fingerprint", {fingerprint: data.fingerprint});
   } catch (error) {
     generatedKeyId = null;
     ui.sshKeys.value = "";
@@ -221,13 +304,13 @@ ui.regenerateSshKey.addEventListener("click", async () => {
   try {
     await generateSshKey();
   } catch (_) {
-    notify("无法生成 SSH 密钥");
+    notify(t("cannot_generate_key"));
   }
 });
 
 ui.downloadSshKey.addEventListener("click", () => {
   privateKeyDownloaded = true;
-  ui.sshKeyStatus.textContent = "私钥已请求下载，请妥善保存";
+  ui.sshKeyStatus.textContent = t("key_download_requested");
   updateStartAvailability();
 });
 
@@ -238,13 +321,13 @@ document.querySelectorAll('input[name="ssh_key_mode"]').forEach((input) => {
     ui.uploadKeyPanel.hidden = sshKeyMode !== "upload";
     ui.sshKeys.value = sshKeyMode === "generate" ? generatedPublicKey : uploadedPublicKey;
     ui.sshKeys.readOnly = sshKeyMode === "generate";
-    ui.sshKeys.placeholder = sshKeyMode === "generate" ? "读取资源后自动生成" : "粘贴一行或多行 SSH 公钥，例如 ssh-ed25519 AAAA...";
-    ui.sshPublicKeyHint.textContent = sshKeyMode === "generate" ? "自动生成模式下，读取资源后会自动填充" : "直接粘贴一行或多行 SSH 公钥，不要填写私钥";
+    ui.sshKeys.placeholder = sshKeyMode === "generate" ? t("ssh_ph_generate") : t("ssh_ph_upload");
+    ui.sshPublicKeyHint.textContent = sshKeyMode === "generate" ? t("ssh_hint_generate") : t("ssh_hint_upload");
     if (sshKeyMode === "generate" && !generatedKeyId && ui.instanceFields.dataset.ready) {
       try {
         await generateSshKey();
       } catch (_) {
-        notify("无法生成 SSH 密钥");
+        notify(t("cannot_generate_key"));
       }
     }
     updateStartAvailability();
@@ -259,13 +342,13 @@ ui.publicKeyFile.addEventListener("change", async () => {
   const file = ui.publicKeyFile.files[0];
   if (!file) return;
   if (file.size > 64 * 1024) {
-    setUploadKeyStatus("公钥文件不能超过 64 KB", false);
+    setUploadKeyStatus(t("pubkey_too_large"), false);
     updateStartAvailability();
     return;
   }
   const content = normalizePublicKey(await file.text());
   if (!isValidPublicKey(content)) {
-    setUploadKeyStatus("文件不是有效的 SSH 公钥，请选择 .pub 文件", false);
+    setUploadKeyStatus(t("pubkey_file_invalid"), false);
     updateStartAvailability();
     return;
   }
@@ -314,7 +397,7 @@ function markResourcesStale() {
   delete ui.instanceFields.dataset.ready;
   ui.instanceFields.disabled = true;
   ui.startButton.disabled = true;
-  ui.resourceStatus.textContent = "连接配置已更改，请重新读取 OCI 资源。";
+  ui.resourceStatus.textContent = t("config_changed");
   ui.resourceStatus.className = "resource-status";
 }
 
@@ -337,9 +420,9 @@ function readResourceCache() {
 }
 
 async function applyResources(data, fromCache = false) {
-  setOptions(ui.compartment, data.compartments, (item) => item.id, (item) => item.name, "选择实例区间");
-  setOptions(ui.availabilityDomain, data.availability_domains, (item) => item.name, (item) => item.name, "选择可用域");
-  setOptions(ui.subnet, data.subnets, (item) => item.id, (item) => `${item.name} · ${item.compartment_name}`, "选择公共子网");
+  setOptions(ui.compartment, data.compartments, (item) => item.id, (item) => item.name, t("choose_compartment"));
+  setOptions(ui.availabilityDomain, data.availability_domains, (item) => item.name, (item) => item.name, t("choose_ad"));
+  setOptions(ui.subnet, data.subnets, (item) => item.id, (item) => `${item.name} · ${item.compartment_name}`, t("choose_subnet"));
   loadedImages = data.images;
   const preferredOrder = ["Oracle Linux", "Canonical Ubuntu", "Ubuntu"];
   const families = [...new Set(data.images.map((item) => item.operating_system))].sort((left, right) => {
@@ -350,44 +433,48 @@ async function applyResources(data, fromCache = false) {
     }
     return left.localeCompare(right);
   });
-  setOptions(ui.imageFamily, families, (item) => item, imageFamilyLabel, "选择操作系统");
+  setOptions(ui.imageFamily, families, (item) => item, imageFamilyLabel, t("choose_os"));
   ui.compartment.selectedIndex = data.compartments.length ? 1 : 0;
   ui.availabilityDomain.selectedIndex = data.availability_domains.length ? 1 : 0;
   ui.subnet.selectedIndex = data.subnets.length ? 1 : 0;
   ui.imageFamily.value = families.includes("Oracle Linux") ? "Oracle Linux" : (families[0] || "");
+  refreshSoftSelect(ui.compartment);
+  refreshSoftSelect(ui.availabilityDomain);
+  refreshSoftSelect(ui.subnet);
+  refreshSoftSelect(ui.imageFamily);
   populateImages(ui.imageFamily.value);
 
   const storage = data.storage;
   const availableBootSize = Math.floor(storage.available_gb);
   const usedPercent = Math.min(100, (storage.used_gb / storage.total_gb) * 100);
   ui.storageMeter.hidden = false;
-  ui.storageAvailable.textContent = `可用 ${storage.available_gb} GB`;
+  ui.storageAvailable.textContent = t("storage_available", {gb: storage.available_gb});
   ui.storageUsedBar.style.width = `${usedPercent}%`;
-  ui.storageDetail.textContent = `已用 ${storage.used_gb} GB / 免费总额 ${storage.total_gb} GB`;
+  ui.storageDetail.textContent = t("storage_detail", {used: storage.used_gb, total: storage.total_gb});
   const maxBootSize = Math.max(50, Math.min(200, availableBootSize));
   ui.bootVolumeSize.max = String(maxBootSize);
   ui.bootVolumeRange.max = String(maxBootSize);
-  ui.bootVolumeHint.textContent = `可选 50–${maxBootSize} GB · 滑动、滚轮或输入数值`;
+  ui.bootVolumeHint.textContent = t("boot_hint", {max: maxBootSize});
   syncBootVolume(ui.bootVolumeSize.value);
 
   const ready = data.compartments.length && data.availability_domains.length && data.subnets.length && data.images.length;
-  if (!ready) throw new Error("OCI 账户中没有找到完整的区间、公共子网或 A1 镜像");
+  if (!ready) throw new Error(t("load_failed"));
   if (storage.available_gb < storage.minimum_boot_volume_gb) {
-    throw new Error(`免费块存储仅剩 ${storage.available_gb} GB，不足以创建 ${storage.minimum_boot_volume_gb} GB 启动盘`);
+    throw new Error(t("storage_insufficient", {available: storage.available_gb, minimum: storage.minimum_boot_volume_gb}));
   }
   ui.instanceFields.dataset.ready = "true";
   ui.instanceFields.disabled = false;
   if (sshKeyMode === "generate" && !generatedKeyId) await generateSshKey();
   updateStartAvailability();
-  ui.resourceStatus.textContent = `${fromCache ? "已使用缓存 · " : ""}${data.region} · ${data.subnets.length} 个公共子网 · ${families.length} 类系统 · 可用存储 ${storage.available_gb} GB`;
+  ui.resourceStatus.textContent = t("resources_summary", {cache: fromCache ? t("cache_prefix") : "", region: data.region, subnets: data.subnets.length, families: families.length, storage: storage.available_gb});
   ui.resourceStatus.className = "resource-status ready";
   activateConfigTab("instance");
 }
 
 async function loadResources(force = false) {
   ui.loadResources.disabled = true;
-  ui.loadResources.textContent = "正在读取";
-  ui.resourceStatus.textContent = "正在验证 API 配置并查询东京区域资源...";
+  ui.loadResources.textContent = t("loading");
+  ui.resourceStatus.textContent = t("loading_resources");
   ui.resourceStatus.className = "resource-status loading";
   try {
     if (!force) {
@@ -399,7 +486,7 @@ async function loadResources(force = false) {
     }
     const response = await fetch("/api/oci/resources", {method: "POST", body: new FormData(ui.startForm)});
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "读取 OCI 资源失败");
+    if (!response.ok) throw new Error(data.error || t("load_failed"));
     saveResourceCache(data);
     await applyResources(data);
   } catch (error) {
@@ -410,18 +497,23 @@ async function loadResources(force = false) {
     ui.resourceStatus.className = "resource-status error";
   } finally {
     ui.loadResources.disabled = false;
-    ui.loadResources.textContent = "读取 OCI 资源";
+    ui.loadResources.textContent = t("load_resources");
   }
 }
 
 ui.loadResources.addEventListener("click", () => loadResources(true));
 
-const notificationRequirements = {telegram: ["telegram_token", "telegram_chat_id"], bark: ["bark_device_key"], email: ["email_smtp_host", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_url"]};
-const notificationFieldNames = {telegram: ["telegram_token", "telegram_chat_id", "telegram_api_host"], bark: ["bark_device_key", "bark_server"], email: ["email_smtp_host", "email_smtp_port", "email_security", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_provider", "webhook_url"]};
+const notificationRequirements = {telegram: ["telegram_token", "telegram_chat_id"], bark: ["bark_device_key"], pushplus: ["pushplus_token"], serverchan: ["serverchan_sendkey"], gotify: ["gotify_server", "gotify_app_token"], ntfy: ["ntfy_topic"], email: ["email_smtp_host", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_url"]};
+const notificationFieldNames = {telegram: ["telegram_token", "telegram_chat_id", "telegram_api_host"], bark: ["bark_device_key", "bark_server"], pushplus: ["pushplus_token", "pushplus_topic"], serverchan: ["serverchan_sendkey"], gotify: ["gotify_server", "gotify_app_token"], ntfy: ["ntfy_server", "ntfy_topic"], email: ["email_smtp_host", "email_smtp_port", "email_security", "email_username", "email_password", "email_from", "email_to"], webhook: ["webhook_provider", "webhook_url"]};
 const webhookTypes = ["feishu", "dingtalk", "wecom", "discord", "slack", "generic"];
-const notificationLabels = {telegram: "Telegram", bark: "Bark", email: "电子邮件", feishu: "飞书机器人", dingtalk: "钉钉机器人", wecom: "企业微信", discord: "Discord", slack: "Slack", generic: "通用 Webhook"};
-const notificationDescriptions = {telegram: "通过 Telegram Bot 接收任务结果", bark: "推送到 iPhone 或 macOS", email: "通过 SMTP 发送结果邮件", feishu: "发送到飞书群机器人", dingtalk: "发送到钉钉群机器人", wecom: "发送到企业微信群机器人", discord: "发送到 Discord 频道", slack: "发送到 Slack 频道", generic: "向自定义地址发送 JSON 请求"};
-const notificationGlyphs = {telegram: "TG", bark: "BK", email: "@", feishu: "FS", dingtalk: "DT", wecom: "WX", discord: "DC", slack: "SL", generic: "WH"};
+const notificationLabels = {telegram: "Telegram", bark: "Bark", pushplus: "PushPlus", serverchan: t("serverchan_label") || "ServerChan", gotify: "Gotify", ntfy: "ntfy", email: t("email_label") || "Email", feishu: t("feishu_label") || "Feishu", dingtalk: t("dingtalk_label") || "DingTalk", wecom: t("wecom_label") || "WeCom", discord: "Discord", slack: "Slack", generic: t("generic_label") || "Webhook"};
+const notificationDescriptions = {telegram: t("telegram_desc"), bark: t("bark_desc"), pushplus: t("pushplus_desc"), serverchan: t("serverchan_desc"), gotify: t("gotify_desc"), ntfy: t("ntfy_desc"), email: t("email_desc"), feishu: t("feishu_desc"), dingtalk: t("dingtalk_desc"), wecom: t("wecom_desc"), discord: t("discord_desc"), slack: t("slack_desc"), generic: t("generic_desc")};
+const notificationIcons = {
+  telegram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-18 7 7 2 2 7 3-5 4 3 2-14Z"/><path d="m10 12 8-5-6 7"/></svg>', bark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4"/></svg>', pushplus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/><circle cx="12" cy="12" r="9"/></svg>', serverchan: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h3v-4h3v4h3V9h3v9h4"/><path d="M4 6h16"/></svg>', gotify: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 8-12h-6l1-8Z"/></svg>', ntfy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10a7 7 0 0 1 14 0M8 13a4 4 0 0 1 8 0M11 16a1 1 0 0 1 2 0"/><path d="M12 19v2"/></svg>', email: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>', feishu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 5 9 2 7 12-8-3-4 3 1-7-5-7Z"/></svg>', dingtalk: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v10a6 6 0 0 1-6 6H9l-4-4V4Z"/><path d="M8 9h8M8 13h5"/></svg>', wecom: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a6 6 0 0 1 11-3 5 5 0 0 1 5 5 5 5 0 0 1-5 5H9l-5 2 1-4a6 6 0 0 1-1-5Z"/><path d="M8 12h.01M12 12h.01"/></svg>', discord: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7a16 16 0 0 1 12 0l2 10a16 16 0 0 1-5 2l-1-2H10l-1 2a16 16 0 0 1-5-2L6 7Z"/><path d="M8 13h.01M16 13h.01"/></svg>', slack: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4a2 2 0 1 0 0 4h3V5a2 2 0 0 0-3-1ZM20 9a2 2 0 1 0-4 0v3h3a2 2 0 0 0 1-3ZM15 20a2 2 0 1 0 0-4h-3v3a2 2 0 0 0 3 1ZM4 15a2 2 0 1 0 4 0v-3H5a2 2 0 0 0-1 3Z"/></svg>', generic: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>'
+};
+const notificationIconUrls = {telegram: "telegram.webp", bark: "bark.webp", pushplus: "pushplus.webp", serverchan: "serverchan.webp", gotify: "gotify.webp", ntfy: "ntfy.png", email: "email.webp", feishu: "feishu.webp", dingtalk: "dingtalk.webp", wecom: "wework_robot.webp", discord: "discord.png", slack: "slack.png", generic: "webhook.webp"};
+Object.keys(notificationIconUrls).forEach((name) => { notificationIcons[name] = `<img src="/static/notification-icons/${notificationIconUrls[name]}" alt="">`; });
+const notificationOrder = ["telegram", "bark", "pushplus", "serverchan", "gotify", "ntfy", "email", ...webhookTypes];
 const notificationList = document.querySelector("#notification-list");
 const notificationEmpty = document.querySelector("#notification-empty");
 const notificationSummaryText = document.querySelector("#notification-summary-text");
@@ -438,6 +530,9 @@ const selectedChannelGlyph = document.querySelector("#selected-channel-glyph");
 const selectedChannelName = document.querySelector("#selected-channel-name");
 const selectedChannelDescription = document.querySelector("#selected-channel-description");
 let editingNotification = null;
+
+channelOptions.forEach((option) => { const icon = option.querySelector(".channel-option-icon"); icon.classList.add(`channel-icon-${option.dataset.channelOption}`); icon.innerHTML = notificationIcons[option.dataset.channelOption]; });
+selectedChannelGlyph.innerHTML = notificationIcons.telegram;
 
 function notificationFieldReady(field) { return field.dataset.provided === "true" || Boolean(field.value.trim()); }
 function internalChannel(name) { return webhookTypes.includes(name) ? "webhook" : name; }
@@ -466,9 +561,10 @@ function setEditorChannel(name) {
     option.classList.toggle("is-active", active);
     option.setAttribute("aria-pressed", String(active));
     option.classList.toggle("is-configured", notificationExists(option.dataset.channelOption));
-    option.querySelector("i").textContent = notificationExists(option.dataset.channelOption) ? "已添加" : "";
+    option.querySelector("i").textContent = notificationExists(option.dataset.channelOption) ? t("added") : "";
   });
-  selectedChannelGlyph.textContent = notificationGlyphs[name];
+  selectedChannelGlyph.className = `selected-channel-glyph channel-glyph-${name}`;
+  selectedChannelGlyph.innerHTML = notificationIcons[name];
   selectedChannelName.textContent = notificationLabels[name];
   selectedChannelDescription.textContent = notificationDescriptions[name];
   editorError.textContent = "";
@@ -477,9 +573,9 @@ function selectNotificationChannel(name) {
   editingNotification = name;
   setEditorChannel(name);
   const exists = notificationExists(name);
-  document.querySelector("#notification-editor-title").textContent = exists ? "编辑通知渠道" : "添加通知渠道";
-  document.querySelector("#notification-editor-copy").textContent = exists ? `更新 ${notificationLabels[name]} 的连接信息和发送状态。` : `配置 ${notificationLabels[name]}，任务成功后自动发送结果。`;
-  document.querySelector("#save-notification").textContent = exists ? "保存渠道设置" : "添加到任务";
+  document.querySelector("#notification-editor-title").textContent = exists ? t("title_edit") : t("title_add");
+  document.querySelector("#notification-editor-copy").textContent = exists ? t("copy_edit", {name: notificationLabels[name]}) : t("copy_add", {name: notificationLabels[name]});
+  document.querySelector("#save-notification").textContent = exists ? t("save") : t("add_to_job");
   editorEnabled.checked = notificationEditorForm.elements[`${internalChannel(name)}_enabled`]?.checked || false;
 }
 function renderNotificationCards() {
@@ -494,8 +590,8 @@ function renderNotificationCards() {
     const ready = notificationReady(name);
     if (ready && enabled) enabledCount += 1;
     card.classList.toggle("is-enabled", ready && enabled);
-    const state = ready ? (enabled ? "发送中" : "已暂停") : "需完善";
-    card.innerHTML = `<div class="notification-card-main"><span class="channel-glyph">${notificationGlyphs[name]}</span><div class="channel-copy"><div><b>${notificationLabels[name]}</b><span class="channel-state ${ready && enabled ? "is-on" : ""}">${state}</span></div><small>${notificationDescriptions[name]}</small></div><button class="notification-edit" type="button">编辑</button></div><div class="notification-card-footer"><label class="channel-toggle"><input type="checkbox" ${enabled ? "checked" : ""} ${ready ? "" : "disabled"}><span class="toggle-switch" aria-hidden="true"><i></i></span><span class="toggle-label"><b>随当前任务发送</b><small>${ready ? "实例创建成功后立即通知" : "先完成渠道连接信息"}</small></span></label><button class="button ghost notification-test" type="button" ${ready ? "" : "disabled"}>发送测试</button></div>`;
+    const state = ready ? (enabled ? t("state_sending") : t("state_paused")) : t("state_incomplete");
+    card.innerHTML = `<div class="notification-card-main"><span class="channel-glyph channel-glyph-${name}">${notificationIcons[name]}</span><div class="channel-copy"><div><b>${notificationLabels[name]}</b><span class="channel-state ${ready && enabled ? "is-on" : ""}">${state}</span></div><small>${notificationDescriptions[name]}</small></div><button class="notification-edit" type="button">${t("edit")}</button></div><div class="notification-card-footer"><label class="channel-toggle"><input type="checkbox" ${enabled ? "checked" : ""} ${ready ? "" : "disabled"}><span class="toggle-switch" aria-hidden="true"><i></i></span><span class="toggle-label"><b>${t("send_with_job")}</b><small>${ready ? t("send_when_ready") : t("finish_channel_first")}</small></span></label><button class="button ghost notification-test" type="button" ${ready ? "" : "disabled"}>${t("send_test")}</button></div>`;
     card.querySelector("input").addEventListener("change", (event) => {
       notificationEditorForm.elements[`${internalChannel(name)}_enabled`].checked = event.target.checked;
       syncNotificationFields(name);
@@ -507,12 +603,12 @@ function renderNotificationCards() {
   });
   notificationEmpty.hidden = activeNames.length > 0;
   notificationList.hidden = activeNames.length === 0;
-  notificationCount.textContent = `${activeNames.length} 个渠道`;
-  notificationSummaryText.textContent = !activeNames.length ? "尚未配置通知" : enabledCount ? `${enabledCount} 个渠道会在成功后发送` : "渠道已保存，当前均未启用";
+  notificationCount.textContent = t("channel_count", {count: activeNames.length});
+  notificationSummaryText.textContent = !activeNames.length ? t("notify_none") : enabledCount ? t("notify_enabled", {count: enabledCount}) : t("notify_paused");
   channelOptions.forEach((option) => {
     const configured = activeNames.includes(option.dataset.channelOption);
     option.classList.toggle("is-configured", configured);
-    option.querySelector("i").textContent = configured ? "已添加" : "";
+    option.querySelector("i").textContent = configured ? t("added") : "";
   });
 }
 function openNotificationEditor(name = "telegram") {
@@ -522,7 +618,7 @@ function openNotificationEditor(name = "telegram") {
 function closeNotificationEditor() { notificationEditor.close(); editorError.textContent = ""; }
 document.querySelector("#add-notification").addEventListener("click", () => {
   const existing = notificationChannels();
-  const next = ["telegram", "bark", "email", ...webhookTypes].find((name) => !existing.includes(name)) || existing[0] || "telegram";
+  const next = notificationOrder.find((name) => !existing.includes(name)) || existing[0] || "telegram";
   openNotificationEditor(next);
 });
 document.querySelector("#empty-add-notification").addEventListener("click", () => document.querySelector("#add-notification").click());
@@ -540,8 +636,8 @@ async function testNotification(name, useEditorValues = false) {
   try {
     const response = await fetch("/api/notifications/test", {method: "POST", body: form});
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "测试通知失败");
-    notify(data.message || "测试通知已发送");
+    if (!response.ok) throw new Error(data.error || t("test_failed"));
+    notify(data.message || t("test_sent"));
     return true;
   } catch (error) {
     if (useEditorValues) editorError.textContent = error.message;
@@ -553,13 +649,13 @@ editorTestButton.addEventListener("click", async () => {
   const name = notificationPicker.value;
   editorError.textContent = "";
   if (!notificationReady(name)) {
-    editorError.textContent = "请先填写当前渠道的必填连接信息，再发送测试。";
+    editorError.textContent = t("fill_before_test");
     fieldsFor(name).querySelector("input").focus();
     return;
   }
   const originalText = editorTestButton.textContent;
   editorTestButton.disabled = true;
-  editorTestButton.textContent = "正在发送…";
+  editorTestButton.textContent = t("sending");
   await testNotification(name, true);
   editorTestButton.disabled = false;
   editorTestButton.textContent = originalText;
@@ -569,7 +665,7 @@ notificationEditorForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = notificationPicker.value;
   const existed = notificationExists(name);
-  if (!notificationReady(name)) { editorError.textContent = "请填写当前渠道的必填连接信息。"; fieldsFor(name).querySelector("input").focus(); return; }
+  if (!notificationReady(name)) { editorError.textContent = t("fill_required"); fieldsFor(name).querySelector("input").focus(); return; }
   notificationEditorForm.elements[`${internalChannel(name)}_enabled`].checked = editorEnabled.checked;
   syncNotificationFields(name);
   const channels = new Set(notificationChannels());
@@ -578,13 +674,15 @@ notificationEditorForm.addEventListener("submit", (event) => {
   notificationList.dataset.channels = [...channels].join(",");
   renderNotificationCards();
   closeNotificationEditor();
-  notify(existed ? `${notificationLabels[name]} 设置已更新` : `${notificationLabels[name]} 已添加到任务`);
+  notify(existed ? t("channel_updated", {name: notificationLabels[name]}) : t("channel_added", {name: notificationLabels[name]}));
 });
 document.querySelector("#close-notification-editor").addEventListener("click", closeNotificationEditor);
 document.querySelector("#cancel-notification-editor").addEventListener("click", closeNotificationEditor);
 notificationEditor.addEventListener("click", (event) => { if (event.target === notificationEditor) closeNotificationEditor(); });
 
-["telegram", "bark", "email", "webhook"].forEach((name) => {
+[
+  "telegram", "bark", "pushplus", "serverchan", "gotify", "ntfy", "email", "webhook"
+].forEach((name) => {
   notificationRequirements[internalChannel(name)].forEach((fieldName) => notificationEditorForm.elements[fieldName]?.addEventListener("input", () => {
     const channelNames = internalChannel(name) === "webhook" ? webhookTypes : [name];
     channelNames.forEach((channelName) => {
@@ -599,6 +697,10 @@ notificationEditor.addEventListener("click", (event) => { if (event.target === n
 });
 if (notificationList.dataset.initialTelegram === "true") notificationList.dataset.channels = "telegram";
 if (notificationList.dataset.initialBark === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}bark`;
+if (notificationList.dataset.initialPushplus === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}pushplus`;
+if (notificationList.dataset.initialServerchan === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}serverchan`;
+if (notificationList.dataset.initialGotify === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}gotify`;
+if (notificationList.dataset.initialNtfy === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}ntfy`;
 if (notificationList.dataset.initialEmail === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}email`;
 if (notificationList.dataset.initialWebhook === "true") notificationList.dataset.channels = `${notificationList.dataset.channels ? `${notificationList.dataset.channels},` : ""}${notificationList.dataset.initialWebhookProvider || "generic"}`;
 renderNotificationCards();
@@ -606,16 +708,16 @@ renderNotificationCards();
 ui.startForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!sshKeyReady()) {
-    notify(sshKeyMode === "generate" ? "请先下载实例登录私钥" : "请粘贴或选择有效的 SSH 公钥");
+    notify(sshKeyMode === "generate" ? t("download_key_first") : t("paste_pubkey_first"));
     return;
   }
   ui.startButton.disabled = true;
   try {
     const response = await fetch("/api/start", {method: "POST", body: new FormData(ui.startForm)});
     const data = await response.json();
-    notify(response.ok ? "已开始等待 A1 容量" : data.error);
+    notify(response.ok ? t("job_started") : data.error);
   } catch (_) {
-    notify("无法连接到控制台");
+    notify(t("connect_failed"));
   }
   await refreshStatus();
 });
@@ -624,13 +726,13 @@ ui.stopForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const response = await fetch("/api/stop", {method: "POST", body: new FormData(ui.stopForm)});
   const data = await response.json();
-  notify(response.ok ? "停止请求已发送" : data.error);
+  notify(response.ok ? t("stop_sent") : data.error);
   await refreshStatus();
 });
 
 document.querySelector("#copy-button").addEventListener("click", async () => {
   await navigator.clipboard.writeText(ui.logs.textContent);
-  notify("运行日志已复制");
+  notify(t("logs_copied"));
 });
 
 function closeOciDialog() {
@@ -648,7 +750,7 @@ ui.ociDialog.addEventListener("click", (event) => {
 ui.ociCredentialsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const replacing = ui.ociCredentialsForm.dataset.configured === "true";
-  if (replacing && !window.confirm("将替换现有 OCI 配置和 API 私钥，是否继续？")) return;
+  if (replacing && !window.confirm(t("confirm_replace_oci"))) return;
   ui.ociConfigError.textContent = "";
   const submit = ui.ociCredentialsForm.querySelector('button[type="submit"]');
   submit.disabled = true;
@@ -663,21 +765,20 @@ ui.ociCredentialsForm.addEventListener("submit", async (event) => {
       return;
     }
     ui.ociCredentialsForm.dataset.configured = "true";
-    ui.configureOci.textContent = "替换 OCI 凭据";
-    ui.ociDialogTitle.textContent = "替换 OCI 凭据";
-    ui.ociCredentialWarning.textContent = "OCI 私钥无法回显或单独编辑。请重新提交完整配置片段和配套私钥，保存后将整体替换现有凭据。";
-    submit.textContent = "确认替换并读取资源";
+    ui.configureOci.textContent = t("replace_oci");
+    ui.ociDialogTitle.textContent = t("replace_oci");
+    ui.ociCredentialWarning.textContent = t("oci_warning_replace");
+    submit.textContent = t("confirm_replace_load");
     markResourcesStale();
     closeOciDialog();
-    notify(replacing ? "OCI 凭据已更新" : "OCI 凭据已保存");
+    notify(replacing ? t("channel_updated", {name: "OCI"}) : t("channel_added", {name: "OCI"}));
     loadResources(true);
   } catch (_) {
-    ui.ociConfigError.textContent = "无法连接到控制台";
+    ui.ociConfigError.textContent = t("connect_failed");
   } finally {
     submit.disabled = false;
   }
 });
 
-refreshStatus();
+connectStatusStream();
 if (document.querySelector("main.page-shell").dataset.ociConfigured === "true") loadResources();
-setInterval(refreshStatus, 2000);

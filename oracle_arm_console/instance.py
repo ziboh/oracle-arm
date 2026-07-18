@@ -1,6 +1,8 @@
 import re
 from dataclasses import asdict, dataclass
 
+from .i18n import t
+
 
 HOSTNAME_PATTERN = re.compile(r"[a-z][a-z0-9-]{0,62}")
 SSH_KEY_PREFIXES = ("ssh-ed25519 ", "ssh-rsa ", "ecdsa-sha2-")
@@ -28,32 +30,32 @@ class InstanceSpec:
         ssh_keys = form.get("ssh_authorized_keys", "").strip()
 
         if not compartment_id.startswith(("ocid1.compartment.", "ocid1.tenancy.")):
-            raise ValueError("请选择实例区间")
+            raise ValueError(t("errors.need_compartment"))
         if not availability_domain:
-            raise ValueError("请选择可用域")
+            raise ValueError(t("errors.need_ad"))
         if not subnet_id.startswith("ocid1.subnet."):
-            raise ValueError("请选择公共子网")
+            raise ValueError(t("errors.need_subnet"))
         if not image_id.startswith("ocid1.image."):
-            raise ValueError("请选择 ARM 系统镜像")
+            raise ValueError(t("errors.need_image"))
         if not HOSTNAME_PATTERN.fullmatch(display_name) or display_name.endswith("-"):
-            raise ValueError("实例名称必须以字母开头，只能包含小写字母、数字和连字符")
+            raise ValueError(t("errors.display_name_invalid"))
 
         try:
             ocpus = float(form.get("ocpus", "2"))
             memory = float(form.get("memory_in_gbs", "12"))
             boot_volume = float(form.get("boot_volume_size_in_gbs", "50"))
         except ValueError as exc:
-            raise ValueError("实例规格必须是数字") from exc
+            raise ValueError(t("errors.spec_not_number")) from exc
         if not 1 <= ocpus <= 2:
-            raise ValueError("免费 A1 配置的 OCPU 必须在 1 到 2 之间")
+            raise ValueError(t("errors.ocpu_range"))
         if not max(1, ocpus) <= memory <= 12:
-            raise ValueError("免费 A1 配置的内存必须在 OCPU 数量到 12 GB 之间")
+            raise ValueError(t("errors.memory_range"))
         if not 50 <= boot_volume <= 200:
-            raise ValueError("启动盘必须在 50 到 200 GB 之间")
+            raise ValueError(t("errors.boot_range"))
 
         keys = [line.strip() for line in ssh_keys.splitlines() if line.strip()]
         if not keys or any(not line.startswith(SSH_KEY_PREFIXES) for line in keys):
-            raise ValueError("请填写有效的 SSH 公钥，不要填写 OCI API 私钥")
+            raise ValueError(t("errors.ssh_public_required"))
 
         return cls(
             compartment_id=compartment_id,
