@@ -1,15 +1,34 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="{{ html_lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#122630">
-  <title>{% block title %}A1 ARM Control{% endblock %}</title>
+  <title>{% block title %}{{ t('app.title') }}{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v=20260718-10">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v=20260718-14">
 </head>
-<body>{% block body %}{% endblock %}</body>
+<body>
+  <script>window.I18N = {{ js_i18n | tojson }};</script>
+  <script>
+    /* Mirror server language cookie on the client so preference survives even if a proxy strips Set-Cookie. */
+    (function () {
+      var forms = document.querySelectorAll("form[data-lang-switch]");
+      for (var i = 0; i < forms.length; i++) {
+        forms[i].addEventListener("submit", function (event) {
+          var form = event.currentTarget;
+          var select = form.querySelector("select[name='lang']");
+          if (!select) return;
+          var code = select.value || "en";
+          var secure = window.location.protocol === "https:" ? "; Secure" : "";
+          document.cookie = "lang=" + encodeURIComponent(code) + "; Path=/; Max-Age=31536000; SameSite=Lax" + secure;
+        });
+      }
+    })();
+  </script>
+  {% block body %}{% endblock %}
+</body>
 </html>
