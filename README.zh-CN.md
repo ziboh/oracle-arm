@@ -103,9 +103,49 @@ oracle_arm_console/locales/
 
 ## Docker
 
+### 本地构建
+
 ```bash
 docker compose up -d --build
 ```
+
+### 拉取已发布镜像（GHCR）
+
+每次推送版本标签（`v*`）时，GitHub Actions 会构建多架构镜像（`linux/amd64`、`linux/arm64`），并用内置的 `GITHUB_TOKEN` 推送到 GitHub Container Registry（**无需额外 Secret**）：
+
+```text
+ghcr.io/ziboh/oracle-arm:1.1.0
+ghcr.io/ziboh/oracle-arm:latest
+```
+
+```bash
+export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:1.1.0
+docker compose pull
+docker compose up -d
+
+# 或最新版本
+export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:latest
+docker compose up -d
+```
+
+若 Package 为私有，需先登录：
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+首次成功发布后，在 **GitHub → Packages** 中将包可见性设为 **Public**，即可匿名拉取。
+
+### 发布新镜像（维护者）
+
+不需要 Docker Hub 账号或任何 Secrets。打标签并推送即可：
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+会触发 [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)。也可在 Actions 页手动运行 **Docker** 工作流（`workflow_dispatch`）。
 
 生产环境请复制 `.env.example` 为 `.env`，至少设置 `WEB_PASSWORD`、`WEB_SECRET_KEY`，并保持 `BIND_ADDRESS=127.0.0.1`（除非已在反向代理终止 TLS）。
 

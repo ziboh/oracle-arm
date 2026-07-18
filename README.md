@@ -103,9 +103,49 @@ Use the **Language** dropdown on the login page or in the top bar after login.
 
 ## Docker
 
+### Build locally
+
 ```bash
 docker compose up -d --build
 ```
+
+### Pull a released image (GHCR)
+
+On each version tag (`v*`), GitHub Actions builds a multi-arch image (`linux/amd64`, `linux/arm64`) and pushes it to GitHub Container Registry using the built-in `GITHUB_TOKEN` (no extra secrets):
+
+```text
+ghcr.io/ziboh/oracle-arm:1.1.0
+ghcr.io/ziboh/oracle-arm:latest
+```
+
+```bash
+export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:1.1.0
+docker compose pull
+docker compose up -d
+
+# or latest
+export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:latest
+docker compose up -d
+```
+
+If the package is private, authenticate first:
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+After the first successful publish, open **GitHub → Packages** and set the package visibility to **Public** if you want anonymous pulls.
+
+### Publish a new image (maintainers)
+
+No Docker Hub account or secrets are required. Tag and push:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+That triggers [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml). You can also run the **Docker** workflow manually from the Actions tab (`workflow_dispatch`).
 
 Copy `.env.example` to `.env` for production and set at least `WEB_PASSWORD`, `WEB_SECRET_KEY`, and keep `BIND_ADDRESS=127.0.0.1` unless you terminate TLS at a reverse proxy.
 

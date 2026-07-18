@@ -1,5 +1,8 @@
 services:
   oracle-arm:
+    # Prefer the published GHCR image, or build from this repo with --build.
+    # Override version: ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:1.1.0 docker compose up -d
+    image: ${ORACLE_ARM_IMAGE:-ghcr.io/ziboh/oracle-arm:latest}
     build: .
     container_name: oracle-arm-console
     restart: unless-stopped

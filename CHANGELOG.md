@@ -2,6 +2,11 @@
 
 All notable changes to A1 Control are documented here.
 
+## [Unreleased]
+
+- GitHub Actions: build multi-arch Docker images and push to GHCR on version tags (`v*`) using the built-in `GITHUB_TOKEN` (no extra secrets).
+- Compose: optional `ORACLE_ARM_IMAGE` to pull a published image instead of building locally.
+
 ## [1.1.0] - 2026-07-18
 
 - Fix Console / Logs / Settings freezes: close status SSE on navigation and free Waitress workers within ~2s (keep default `WEB_THREADS=4`).
