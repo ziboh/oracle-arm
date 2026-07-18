@@ -2,28 +2,29 @@
 {% block body %}
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="A1 ARM Control 首页">
+    <a class="product-lockup" href="{{ url_for('dashboard') }}" aria-label="{{ t('app.home_aria') }}">
       <span class="product-mark"><i></i>A1</span>
       <span class="product-name"><strong>ARM CONTROL</strong><small>Oracle Cloud Console</small></span>
     </a>
-    <nav class="topbar-nav" aria-label="主导航">
-      <a class="is-active" href="{{ url_for('dashboard') }}">控制台</a>
-      <a href="{{ url_for('logs') }}">运行日志</a>
-      <a href="{{ url_for('settings') }}">设置</a>
+    <nav class="topbar-nav" aria-label="{{ t('app.nav_main') }}">
+      <a class="is-active" href="{{ url_for('dashboard') }}">{{ t('app.console') }}</a>
+      <a href="{{ url_for('logs') }}">{{ t('app.logs') }}</a>
+      <a href="{{ url_for('settings') }}">{{ t('app.settings') }}</a>
     </nav>
     <details class="mobile-menu">
-      <summary><span>控制台</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
-      <nav aria-label="窄屏主导航">
-        <a class="is-active" href="{{ url_for('dashboard') }}" aria-current="page">控制台</a>
-        <a href="{{ url_for('logs') }}">运行日志</a>
-        <a href="{{ url_for('settings') }}">设置</a>
+      <summary><span>{{ t('app.console') }}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4"/></svg></summary>
+      <nav aria-label="{{ t('app.nav_mobile') }}">
+        <a class="is-active" href="{{ url_for('dashboard') }}" aria-current="page">{{ t('app.console') }}</a>
+        <a href="{{ url_for('logs') }}">{{ t('app.logs') }}</a>
+        <a href="{{ url_for('settings') }}">{{ t('app.settings') }}</a>
       </nav>
     </details>
-    <div class="topbar-context"><span class="context-dot"></span> Capacity watcher ready</div>
+    <div class="topbar-context"><span class="context-dot"></span> {{ t('nav.context_console') }}</div>
     <div class="topbar-actions">
+      {% with switch_id='dashboard' %}{% include "_lang_switch.html" %}{% endwith %}
       <form action="{{ url_for('logout') }}" method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="button ghost compact-button" type="submit">退出</button>
+        <button class="button ghost compact-button" type="submit">{{ t('app.logout') }}</button>
       </form>
     </div>
   </div>
@@ -34,20 +35,20 @@
     <div class="mission-primary">
       <div class="mission-status">
         <span id="status-dot" class="status-dot"></span>
-        <div><span class="meta-label">当前任务</span><strong id="status-text">正在连接</strong></div>
+        <div><span class="meta-label">{{ t('dashboard.current_task') }}</span><strong id="status-text">{{ t('dashboard.connecting') }}</strong></div>
       </div>
-      <a class="mission-log-link" href="{{ url_for('logs') }}">打开运行日志 <span aria-hidden="true">↗</span></a>
+      <a class="mission-log-link" href="{{ url_for('logs') }}">{{ t('dashboard.open_logs') }} <span aria-hidden="true">↗</span></a>
     </div>
     <div class="signal-rail" aria-hidden="true"><span></span></div>
-    <ol class="task-track" aria-label="任务进度">
-      <li class="is-ready"><span>01</span>已配置</li>
-      <li><span>02</span>等待容量</li>
-      <li><span>03</span>创建实例</li>
-      <li><span>04</span>任务完成</li>
+    <ol class="task-track" aria-label="{{ t('dashboard.task_title') }}">
+      <li class="is-ready"><span>01</span>{{ t('dashboard.track_configured') }}</li>
+      <li><span>02</span>{{ t('dashboard.track_waiting') }}</li>
+      <li><span>03</span>{{ t('dashboard.track_creating') }}</li>
+      <li><span>04</span>{{ t('dashboard.track_done') }}</li>
     </ol>
     <dl class="status-data">
-      <div><dt>开始时间</dt><dd id="started-at">—</dd></div>
-      <div><dt>退出码</dt><dd id="exit-code">—</dd></div>
+      <div><dt>{{ t('dashboard.started_at') }}</dt><dd id="started-at">{{ t('app.dash') }}</dd></div>
+      <div><dt>{{ t('dashboard.exit_code') }}</dt><dd id="exit-code">{{ t('app.dash') }}</dd></div>
     </dl>
   </section>
 
@@ -55,19 +56,19 @@
     <aside class="command-pane" aria-labelledby="task-title">
       <div class="command-header">
         <div class="pane-heading">
-          <p class="eyebrow">新建任务</p>
-          <h1 id="task-title">创建 Ampere A1</h1>
-          <p>配置实例并开始等待可用容量。</p>
+          <p class="eyebrow">{{ t('dashboard.new_task') }}</p>
+          <h1 id="task-title">{{ t('dashboard.task_title') }}</h1>
+          <p>{{ t('dashboard.task_intro') }}</p>
         </div>
-        <div class="config-tabs" role="tablist" aria-label="任务配置">
+        <div class="config-tabs" role="tablist" aria-label="{{ t('dashboard.task_title') }}">
           <button id="connection-tab" class="config-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="connection-panel" data-tab="connection">
-            <span>01</span>连接
+            <span>01</span>{{ t('dashboard.tab_connection') }}
           </button>
           <button id="instance-tab" class="config-tab" type="button" role="tab" aria-selected="false" aria-controls="instance-panel" data-tab="instance">
-            <span>02</span>实例
+            <span>02</span>{{ t('dashboard.tab_instance') }}
           </button>
           <button id="notification-tab" class="config-tab" type="button" role="tab" aria-selected="false" aria-controls="notification-panel" data-tab="notification">
-            <span>03</span>通知
+            <span>03</span>{{ t('dashboard.tab_notification') }}
           </button>
         </div>
       </div>
@@ -78,66 +79,66 @@
         <div class="config-viewport">
           <section id="connection-panel" class="config-panel is-active" role="tabpanel" aria-labelledby="connection-tab" data-panel="connection">
             <fieldset>
-              <legend>OCI 连接</legend>
-              <p class="panel-intro">先验证账户凭据并读取可用域、子网、镜像和免费存储额度。</p>
+              <legend>{{ t('dashboard.oci_connection') }}</legend>
+              <p class="panel-intro">{{ t('dashboard.connection_intro') }}</p>
               <div class="connection-actions">
-                <button id="configure-oci" class="button ghost" type="button">{{ "替换 OCI 凭据" if oci_configuration.configured else "导入 OCI 凭据" }}</button>
-                <button id="load-resources" class="button secondary" type="button">读取 OCI 资源</button>
+                <button id="configure-oci" class="button ghost" type="button">{{ t('dashboard.replace_oci') if oci_configuration.configured else t('dashboard.import_oci') }}</button>
+                <button id="load-resources" class="button secondary" type="button">{{ t('dashboard.load_resources') }}</button>
               </div>
-              <p id="resource-status" class="resource-status" aria-live="polite">{% if oci_configuration.configured %}已保存 {{ oci_configuration.profile }}{% if oci_configuration.region %} · {{ oci_configuration.region }}{% endif %}，请读取 OCI 资源。{% else %}首次部署请先导入 OCI 配置片段和 PEM 私钥。{% endif %}</p>
-              <label>重试间隔<input name="retry_interval" type="number" min="1" max="300" step="1" value="{{ defaults.retry_interval }}"><span class="input-unit">秒</span></label>
+              <p id="resource-status" class="resource-status" aria-live="polite">{% if oci_configuration.configured %}{{ t('dashboard.resource_status_configured', profile=oci_configuration.profile, region_part=(t('dashboard.region_sep', region=oci_configuration.region) if oci_configuration.region else '')) }}{% else %}{{ t('dashboard.resource_status_empty') }}{% endif %}</p>
+              <label>{{ t('dashboard.retry_interval') }}<input name="retry_interval" type="number" min="1" max="300" step="1" value="{{ defaults.retry_interval }}"><span class="input-unit">{{ t('dashboard.seconds') }}</span></label>
             </fieldset>
           </section>
 
           <section id="instance-panel" class="config-panel" role="tabpanel" aria-labelledby="instance-tab" data-panel="instance" hidden>
             <fieldset id="instance-fields" disabled>
-              <legend>实例配置</legend>
+              <legend>{{ t('dashboard.instance_config') }}</legend>
               <div class="field-pair">
-                <label>实例区间<select id="compartment-id" name="compartment_id" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
-                <label>可用域<select id="availability-domain" name="availability_domain" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+                <label>{{ t('dashboard.compartment') }}<span class="select-wrap"><select id="compartment-id" name="compartment_id" required><option value="" selected disabled hidden>{{ t('dashboard.load_first') }}</option></select></span></label>
+                <label>{{ t('dashboard.availability_domain') }}<span class="select-wrap"><select id="availability-domain" name="availability_domain" required><option value="" selected disabled hidden>{{ t('dashboard.load_first') }}</option></select></span></label>
               </div>
-              <label>公共子网<select id="subnet-id" name="subnet_id" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
+              <label>{{ t('dashboard.public_subnet') }}<span class="select-wrap"><select id="subnet-id" name="subnet_id" required><option value="" selected disabled hidden>{{ t('dashboard.load_first') }}</option></select></span></label>
               <div class="field-pair">
-                <label>操作系统分类<select id="image-family" required><option value="" selected disabled hidden>先读取 OCI 资源</option></select></label>
-                <label>ARM 系统镜像<select id="image-id" name="image_id" required><option value="" selected disabled hidden>先选择操作系统</option></select></label>
+                <label>{{ t('dashboard.os_family') }}<span class="select-wrap"><select id="image-family" required><option value="" selected disabled hidden>{{ t('dashboard.load_first') }}</option></select></span></label>
+                <label>{{ t('dashboard.arm_image') }}<span class="select-wrap"><select id="image-id" name="image_id" required><option value="" selected disabled hidden>{{ t('dashboard.choose_os_first') }}</option></select></span></label>
               </div>
-              <label>实例名称<input name="display_name" value="arm-server" maxlength="63" required></label>
+              <label>{{ t('dashboard.display_name') }}<input name="display_name" value="arm-server" maxlength="63" required></label>
               <div class="spec-grid">
-                <label>OCPU<input name="ocpus" type="number" min="1" max="2" step="1" value="2" required></label>
-                <label>内存<input name="memory_in_gbs" type="number" min="1" max="12" step="1" value="12" required><span class="input-unit">GB</span></label>
+                <label>{{ t('dashboard.ocpu') }}<input name="ocpus" type="number" min="1" max="2" step="1" value="2" required></label>
+                <label>{{ t('dashboard.memory') }}<input name="memory_in_gbs" type="number" min="1" max="12" step="1" value="12" required><span class="input-unit">GB</span></label>
               </div>
               <div id="storage-meter" class="storage-meter storage-selector" hidden>
                 <div class="storage-selector-header">
-                  <div><b>免费块存储额度</b><small>设置本次实例的启动盘大小</small></div>
-                  <strong id="storage-available">—</strong>
+                  <div><b>{{ t('dashboard.free_block_quota') }}</b><small>{{ t('dashboard.set_boot_size') }}</small></div>
+                  <strong id="storage-available">{{ t('app.dash') }}</strong>
                 </div>
                 <label class="boot-volume-slider">
-                  <span><b>启动盘</b><output id="boot-volume-output" for="boot-volume-range">50 GB</output></span>
-                  <input id="boot-volume-range" type="range" min="50" max="200" step="1" value="50" aria-label="启动盘大小" aria-describedby="boot-volume-hint">
+                  <span><b>{{ t('dashboard.boot_volume') }}</b><output id="boot-volume-output" for="boot-volume-range">50 GB</output></span>
+                  <input id="boot-volume-range" type="range" min="50" max="200" step="1" value="50" aria-label="{{ t('dashboard.boot_volume_aria') }}" aria-describedby="boot-volume-hint">
                 </label>
                 <div class="storage-usage-track" aria-hidden="true"><i id="storage-used-bar"></i></div>
                 <div class="storage-selector-footer">
-                  <small id="storage-detail">读取 OCI 资源后显示</small>
-                  <label class="boot-volume-number"><span>精确输入</span><span class="boot-volume-input"><input id="boot-volume-size" name="boot_volume_size_in_gbs" type="number" min="50" max="200" step="1" value="50" required><i>GB</i></span></label>
+                  <small id="storage-detail">{{ t('dashboard.storage_after_load') }}</small>
+                  <label class="boot-volume-number"><span>{{ t('dashboard.precise_input') }}</span><span class="boot-volume-input"><input id="boot-volume-size" name="boot_volume_size_in_gbs" type="number" min="50" max="200" step="1" value="50" required><i>GB</i></span></label>
                 </div>
-                <small id="boot-volume-hint">拖动滑块、滚动鼠标滚轮或输入数值进行选择</small>
+                <small id="boot-volume-hint">{{ t('dashboard.boot_hint') }}</small>
               </div>
-              <div class="section-divider"><span>SSH 登录</span></div>
-              <div class="segmented-control" aria-label="SSH 密钥来源">
-                <label><input type="radio" name="ssh_key_mode" value="generate" checked><span>自动生成</span></label>
-                <label><input type="radio" name="ssh_key_mode" value="upload"><span>已有公钥</span></label>
+              <div class="section-divider"><span>{{ t('dashboard.ssh_login') }}</span></div>
+              <div class="segmented-control" aria-label="{{ t('dashboard.ssh_source') }}">
+                <label><input type="radio" name="ssh_key_mode" value="generate" checked><span>{{ t('dashboard.ssh_generate') }}</span></label>
+                <label><input type="radio" name="ssh_key_mode" value="upload"><span>{{ t('dashboard.ssh_upload') }}</span></label>
               </div>
-              <label class="ssh-public-key-field">SSH 公钥<textarea id="ssh-authorized-keys" name="ssh_authorized_keys" rows="2" placeholder="读取资源后自动生成" readonly required></textarea><small id="ssh-public-key-hint">自动生成模式下，读取资源后会自动填充</small></label>
+              <label class="ssh-public-key-field">{{ t('dashboard.ssh_public_key') }}<textarea id="ssh-authorized-keys" name="ssh_authorized_keys" rows="2" placeholder="{{ t('dashboard.ssh_placeholder_generate') }}" readonly required></textarea><small id="ssh-public-key-hint">{{ t('dashboard.ssh_hint_generate') }}</small></label>
               <div id="generated-key-panel" class="ssh-key-panel">
-                <div><b>实例登录密钥</b><small id="ssh-key-status">读取 OCI 资源后自动生成</small></div>
+                <div><b>{{ t('dashboard.instance_login_key') }}</b><small id="ssh-key-status">{{ t('dashboard.ssh_status_pending') }}</small></div>
                 <div class="ssh-key-actions">
-                  <button id="regenerate-ssh-key" class="button ghost" type="button">重新生成</button>
-                  <a id="download-ssh-key" class="button secondary" href="#" download="oracle-arm-ssh.key" hidden>下载私钥</a>
+                  <button id="regenerate-ssh-key" class="button ghost" type="button">{{ t('dashboard.regenerate') }}</button>
+                  <a id="download-ssh-key" class="button secondary" href="#" download="oracle-arm-ssh.key" hidden>{{ t('dashboard.download_private_key') }}</a>
                 </div>
               </div>
               <div id="upload-key-panel" class="ssh-key-panel" hidden>
-                <div><b>已有 SSH 公钥</b><small id="uploaded-key-status">请在上方文本框中粘贴公钥，不要填写私钥</small></div>
-                <label class="public-key-picker">选择公钥文件<input id="ssh-public-key-file" type="file" accept=".pub,text/plain"></label>
+                <div><b>{{ t('dashboard.existing_public_key') }}</b><small id="uploaded-key-status">{{ t('dashboard.upload_status_default') }}</small></div>
+                <label class="public-key-picker">{{ t('dashboard.choose_pub_file') }}<input id="ssh-public-key-file" type="file" accept=".pub,text/plain"></label>
               </div>
             </fieldset>
           </section>
@@ -146,25 +147,29 @@
             <fieldset class="notification-workspace">
               <div class="notification-heading">
                 <div>
-                  <legend>创建结果通知</legend>
-                  <p class="panel-intro">实例创建成功后，把公网地址和登录信息发送到你选择的渠道。</p>
+                  <legend>{{ t('dashboard.notify_results') }}</legend>
+                  <p class="panel-intro">{{ t('dashboard.notify_intro') }}</p>
                 </div>
-                <button id="add-notification" class="button primary notification-add-button" type="button"><span aria-hidden="true">＋</span>选择渠道</button>
+                <button id="add-notification" class="button primary notification-add-button" type="button"><span aria-hidden="true">＋</span>{{ t('dashboard.choose_channel') }}</button>
               </div>
               <div class="notification-summary">
                 <span class="notification-summary-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-                <div><small>当前发送策略</small><strong id="notification-summary-text">尚未配置通知</strong></div>
-                <b id="notification-count">0 个渠道</b>
+                <div><small>{{ t('dashboard.notify_policy') }}</small><strong id="notification-summary-text">{{ t('dashboard.notify_none') }}</strong></div>
+                <b id="notification-count">{{ t('dashboard.channel_count', count=0) }}</b>
               </div>
               {% set telegram_configured = defaults.telegram_token and defaults.telegram_chat_id %}
               {% set bark_configured = defaults.bark_device_key %}
+              {% set pushplus_configured = defaults.pushplus_token %}
+              {% set serverchan_configured = defaults.serverchan_sendkey %}
+              {% set gotify_configured = defaults.gotify_server and defaults.gotify_app_token %}
+              {% set ntfy_configured = defaults.ntfy_topic %}
               {% set webhook_configured = defaults.webhook_url %}
-              <div id="notification-list" class="notification-list" data-initial-telegram="{{ 'true' if telegram_configured else 'false' }}" data-initial-bark="{{ 'true' if bark_configured else 'false' }}" data-initial-webhook="{{ 'true' if webhook_configured else 'false' }}" data-initial-email="{{ 'true' if defaults.email_smtp_host and defaults.email_username and defaults.email_from and defaults.email_to else 'false' }}" data-initial-webhook-provider="{{ defaults.webhook_provider }}" data-initial-telegram-enabled="{{ 'true' if defaults.telegram_enabled else 'false' }}" data-initial-bark-enabled="{{ 'true' if defaults.bark_enabled else 'false' }}" data-initial-webhook-enabled="{{ 'true' if defaults.webhook_enabled else 'false' }}" data-initial-email-enabled="{{ 'true' if defaults.email_enabled else 'false' }}"></div>
+              <div id="notification-list" class="notification-list" data-initial-telegram="{{ 'true' if telegram_configured else 'false' }}" data-initial-bark="{{ 'true' if bark_configured else 'false' }}" data-initial-pushplus="{{ 'true' if pushplus_configured else 'false' }}" data-initial-serverchan="{{ 'true' if serverchan_configured else 'false' }}" data-initial-gotify="{{ 'true' if gotify_configured else 'false' }}" data-initial-ntfy="{{ 'true' if ntfy_configured else 'false' }}" data-initial-webhook="{{ 'true' if webhook_configured else 'false' }}" data-initial-email="{{ 'true' if defaults.email_smtp_host and defaults.email_username and defaults.email_from and defaults.email_to else 'false' }}" data-initial-webhook-provider="{{ defaults.webhook_provider }}" data-initial-telegram-enabled="{{ 'true' if defaults.telegram_enabled else 'false' }}" data-initial-bark-enabled="{{ 'true' if defaults.bark_enabled else 'false' }}" data-initial-pushplus-enabled="{{ 'true' if defaults.pushplus_enabled else 'false' }}" data-initial-serverchan-enabled="{{ 'true' if defaults.serverchan_enabled else 'false' }}" data-initial-gotify-enabled="{{ 'true' if defaults.gotify_enabled else 'false' }}" data-initial-ntfy-enabled="{{ 'true' if defaults.ntfy_enabled else 'false' }}" data-initial-webhook-enabled="{{ 'true' if defaults.webhook_enabled else 'false' }}" data-initial-email-enabled="{{ 'true' if defaults.email_enabled else 'false' }}"></div>
               <div id="notification-empty" class="notification-empty">
                 <span class="empty-signal" aria-hidden="true"><i></i><i></i><i></i></span>
-                <b>任务完成后还不会通知你</b>
-                <small>添加 Telegram、Bark、邮件或群机器人，成功创建实例时立即收到公网地址。</small>
-                <button id="empty-add-notification" class="button ghost" type="button">添加第一个通知渠道</button>
+                <b>{{ t('dashboard.notify_empty_title') }}</b>
+                <small>{{ t('dashboard.notify_empty_body') }}</small>
+                <button id="empty-add-notification" class="button ghost" type="button">{{ t('dashboard.add_first_channel') }}</button>
               </div>
             </fieldset>
           </section>
@@ -174,17 +179,17 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       </form>
       <div class="task-actions">
-        <button id="stop-button" class="button danger" type="submit" form="stop-form" disabled>停止</button>
-        <button id="start-button" class="button primary" type="submit" form="start-form" disabled>开始等待容量</button>
+        <button id="stop-button" class="button danger" type="submit" form="stop-form" disabled>{{ t('dashboard.stop') }}</button>
+        <button id="start-button" class="button primary" type="submit" form="start-form" disabled>{{ t('dashboard.start_wait') }}</button>
       </div>
     </aside>
 
     <section class="log-pane" aria-labelledby="log-title">
       <header>
-        <div><p class="eyebrow">实时事件</p><h2 id="log-title">运行日志</h2></div>
-        <button id="copy-button" class="button ghost" type="button">复制</button>
+        <div><p class="eyebrow">{{ t('dashboard.live_events') }}</p><h2 id="log-title">{{ t('dashboard.runtime_logs') }}</h2></div>
+        <button id="copy-button" class="button ghost" type="button">{{ t('app.copy') }}</button>
       </header>
-      <pre id="logs" tabindex="0"><span>等待任务启动</span></pre>
+      <pre id="logs" tabindex="0"><span>{{ t('dashboard.waiting_start') }}</span></pre>
     </section>
   </section>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -194,77 +199,96 @@
   <form id="oci-credentials-form" enctype="multipart/form-data" data-configured="{{ 'true' if oci_configuration.configured else 'false' }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <header>
-      <div><p class="eyebrow">OCI API 认证</p><h2 id="oci-dialog-title">{{ "替换 OCI 凭据" if oci_configuration.configured else "导入 OCI 凭据" }}</h2></div>
-      <button id="close-oci-dialog" class="dialog-close" type="button" aria-label="关闭">×</button>
+      <div><p class="eyebrow">{{ t('dashboard.oci_auth') }}</p><h2 id="oci-dialog-title">{{ t('dashboard.replace_oci') if oci_configuration.configured else t('dashboard.import_oci') }}</h2></div>
+      <button id="close-oci-dialog" class="dialog-close" type="button" aria-label="{{ t('app.close') }}">×</button>
     </header>
     <div class="dialog-body">
-      <label>配置文件片段<textarea name="config_text" rows="9" placeholder="[DEFAULT]&#10;user=ocid1.user...&#10;fingerprint=...&#10;tenancy=ocid1.tenancy...&#10;region=ap-tokyo-1&#10;key_file=&lt;path to your private keyfile&gt;" required></textarea></label>
-      <label>API 私钥文件<span class="pem-picker"><input name="private_key" type="file" accept=".pem,.key,application/x-pem-file" required><small>选择创建 API Key 时下载的未加密 .pem 文件</small></span></label>
-      <p id="oci-credential-warning" class="credential-warning">{% if oci_configuration.configured %}OCI 私钥无法回显或单独编辑。请重新提交完整配置片段和配套私钥，保存后将整体替换现有凭据。{% else %}Profile 将从配置片段自动识别。私钥会保存在服务器持久化目录中，公网部署必须先启用 HTTPS。{% endif %}</p>
+      <label>{{ t('dashboard.config_snippet') }}<textarea name="config_text" rows="9" placeholder="[DEFAULT]&#10;user=ocid1.user...&#10;fingerprint=...&#10;tenancy=ocid1.tenancy...&#10;region=ap-tokyo-1&#10;key_file=&lt;path to your private keyfile&gt;" required></textarea></label>
+      <label>{{ t('dashboard.api_private_key') }}<span class="pem-picker"><input name="private_key" type="file" accept=".pem,.key,application/x-pem-file" required><small>{{ t('dashboard.pem_hint') }}</small></span></label>
+      <p id="oci-credential-warning" class="credential-warning">{{ t('dashboard.oci_warning_replace') if oci_configuration.configured else t('dashboard.oci_warning_new') }}</p>
       <p id="oci-config-error" class="form-error" role="alert"></p>
     </div>
     <footer>
-      <button id="cancel-oci-dialog" class="button ghost" type="button">取消</button>
-      <button class="button primary" type="submit">{{ "确认替换并读取资源" if oci_configuration.configured else "保存并读取资源" }}</button>
+      <button id="cancel-oci-dialog" class="button ghost" type="button">{{ t('app.cancel') }}</button>
+      <button class="button primary" type="submit">{{ t('dashboard.confirm_replace_load') if oci_configuration.configured else t('dashboard.save_and_load') }}</button>
     </footer>
   </form>
 </dialog>
 <dialog id="notification-editor" class="notification-editor-dialog" aria-labelledby="notification-editor-title">
   <form id="notification-editor-form" class="notification-editor-form">
     <header class="editor-header">
-      <div><p class="eyebrow">通知渠道</p><h2 id="notification-editor-title">配置通知渠道</h2><p id="notification-editor-copy">选择接收方式，然后填写连接信息。</p></div>
-      <button id="close-notification-editor" class="dialog-close" type="button" aria-label="关闭">×</button>
+      <div><p class="eyebrow">{{ t('notify_editor.eyebrow') }}</p><h2 id="notification-editor-title">{{ t('notify_editor.title_add') }}</h2><p id="notification-editor-copy">{{ t('notify_editor.default_copy') }}</p></div>
+      <button id="close-notification-editor" class="dialog-close" type="button" aria-label="{{ t('app.close') }}">×</button>
     </header>
-    <select id="notification-channel-picker" hidden aria-hidden="true"><option value="telegram">Telegram</option><option value="bark">Bark</option><option value="email">邮箱</option><option value="feishu">飞书</option><option value="dingtalk">钉钉</option><option value="wecom">企业微信</option><option value="discord">Discord</option><option value="slack">Slack</option><option value="generic">通用 Webhook</option></select>
+    <select id="notification-channel-picker" hidden aria-hidden="true"><option value="telegram">Telegram</option><option value="bark">Bark</option><option value="pushplus">PushPlus</option><option value="serverchan">{{ t('notify_editor.serverchan_label') }}</option><option value="gotify">Gotify</option><option value="ntfy">ntfy</option><option value="email">{{ t('notify_editor.email_label') }}</option><option value="feishu">{{ t('notify_editor.feishu_label') }}</option><option value="dingtalk">{{ t('notify_editor.dingtalk_label') }}</option><option value="wecom">{{ t('notify_editor.wecom_label') }}</option><option value="discord">Discord</option><option value="slack">Slack</option><option value="generic">{{ t('notify_editor.generic_label') }}</option></select>
     <div class="notification-editor-layout">
-      <aside class="channel-catalog" aria-label="选择通知渠道">
-        <div class="channel-catalog-heading"><b>选择接收方式</b><small>已添加的渠道可以继续编辑</small></div>
+      <aside class="channel-catalog" aria-label="{{ t('notify_editor.catalog_aria') }}">
+        <div class="channel-catalog-heading"><b>{{ t('notify_editor.pick_method') }}</b><small>{{ t('notify_editor.pick_hint') }}</small></div>
         <div class="channel-options">
-          <button class="channel-option is-active" type="button" data-channel-option="telegram"><span class="channel-option-icon">TG</span><span><b>Telegram</b><small>Bot 私聊或群组</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="bark"><span class="channel-option-icon">BK</span><span><b>Bark</b><small>iPhone / macOS 推送</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="email"><span class="channel-option-icon">@</span><span><b>电子邮件</b><small>通过 SMTP 发送</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="feishu"><span class="channel-option-icon">FS</span><span><b>飞书机器人</b><small>发送到飞书群聊</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="dingtalk"><span class="channel-option-icon">DT</span><span><b>钉钉机器人</b><small>发送到钉钉群聊</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="wecom"><span class="channel-option-icon">WX</span><span><b>企业微信</b><small>群机器人 Webhook</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="discord"><span class="channel-option-icon">DC</span><span><b>Discord</b><small>频道 Webhook</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="slack"><span class="channel-option-icon">SL</span><span><b>Slack</b><small>频道 Webhook</small></span><i></i></button>
-          <button class="channel-option" type="button" data-channel-option="generic"><span class="channel-option-icon">WH</span><span><b>通用 Webhook</b><small>发送 JSON 请求</small></span><i></i></button>
+          <button class="channel-option is-active" type="button" data-channel-option="telegram"><span class="channel-option-icon channel-icon-telegram"></span><span><b>Telegram</b><small>{{ t('notify_editor.telegram_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="bark"><span class="channel-option-icon channel-icon-bark"></span><span><b>Bark</b><small>{{ t('notify_editor.bark_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="pushplus"><span class="channel-option-icon channel-icon-pushplus"></span><span><b>PushPlus</b><small>{{ t('notify_editor.pushplus_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="serverchan"><span class="channel-option-icon channel-icon-serverchan"></span><span><b>{{ t('notify_editor.serverchan_label') }}</b><small>{{ t('notify_editor.serverchan_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="gotify"><span class="channel-option-icon channel-icon-gotify"></span><span><b>Gotify</b><small>{{ t('notify_editor.gotify_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="ntfy"><span class="channel-option-icon channel-icon-ntfy"></span><span><b>ntfy</b><small>{{ t('notify_editor.ntfy_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="email"><span class="channel-option-icon channel-icon-email"></span><span><b>{{ t('notify_editor.email_label') }}</b><small>{{ t('notify_editor.email_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="feishu"><span class="channel-option-icon"></span><span><b>{{ t('notify_editor.feishu_label') }}</b><small>{{ t('notify_editor.feishu_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="dingtalk"><span class="channel-option-icon"></span><span><b>{{ t('notify_editor.dingtalk_label') }}</b><small>{{ t('notify_editor.dingtalk_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="wecom"><span class="channel-option-icon"></span><span><b>{{ t('notify_editor.wecom_label') }}</b><small>{{ t('notify_editor.wecom_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="discord"><span class="channel-option-icon"></span><span><b>Discord</b><small>{{ t('notify_editor.discord_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="slack"><span class="channel-option-icon"></span><span><b>Slack</b><small>{{ t('notify_editor.slack_small') }}</small></span><i></i></button>
+          <button class="channel-option" type="button" data-channel-option="generic"><span class="channel-option-icon"></span><span><b>{{ t('notify_editor.generic_label') }}</b><small>{{ t('notify_editor.generic_small') }}</small></span><i></i></button>
         </div>
       </aside>
       <section class="channel-config">
         <header class="channel-config-header">
-          <span id="selected-channel-glyph" class="selected-channel-glyph">TG</span>
-          <div><b id="selected-channel-name">Telegram</b><small id="selected-channel-description">通过 Telegram Bot 接收任务结果</small></div>
+          <span id="selected-channel-glyph" class="selected-channel-glyph"></span>
+          <div><b id="selected-channel-name">Telegram</b><small id="selected-channel-description">{{ t('notify_editor.telegram_desc') }}</small></div>
         </header>
         <div class="channel-config-body">
           <fieldset class="editor-channel-fields" data-editor-channel="telegram">
-            <label>Bot Token<input name="telegram_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_token else 'false' }}" placeholder="{% if defaults.telegram_token %}已由环境变量提供{% else %}123456:ABC...{% endif %}"><small>从 BotFather 创建机器人后获得。</small></label>
-            <label>接收会话 Chat ID<input name="telegram_chat_id" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_chat_id else 'false' }}" placeholder="{% if defaults.telegram_chat_id %}已由环境变量提供{% else %}123456789{% endif %}"></label>
-            <label>Telegram API 地址<input name="telegram_api_host" value="{{ defaults.telegram_api_host }}" autocomplete="off"><small>通常无需修改。</small></label>
+            <label>{{ t('notify_editor.bot_token') }}<input name="telegram_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_token else 'false' }}" placeholder="{% if defaults.telegram_token %}{{ t('notify_editor.env_provided') }}{% else %}123456:ABC...{% endif %}"><small>{{ t('notify_editor.bot_token_hint') }}</small></label>
+            <label>{{ t('notify_editor.chat_id') }}<input name="telegram_chat_id" autocomplete="off" data-provided="{{ 'true' if defaults.telegram_chat_id else 'false' }}" placeholder="{% if defaults.telegram_chat_id %}{{ t('notify_editor.env_provided') }}{% else %}123456789{% endif %}"></label>
+            <label>{{ t('notify_editor.api_host') }}<input name="telegram_api_host" value="{{ defaults.telegram_api_host }}" autocomplete="off"><small>{{ t('notify_editor.api_host_hint') }}</small></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="bark" hidden>
-            <label>Bark 设备密钥<input name="bark_device_key" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.bark_device_key else 'false' }}" placeholder="{% if defaults.bark_device_key %}已由环境变量提供{% else %}Bark 设备密钥{% endif %}"><small>在 Bark 应用中复制设备密钥。</small></label>
-            <label>Bark 服务地址<input name="bark_server" value="{{ defaults.bark_server }}" autocomplete="off" placeholder="https://api.day.app"></label>
+            <label>{{ t('notify_editor.bark_key') }}<input name="bark_device_key" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.bark_device_key else 'false' }}" placeholder="{% if defaults.bark_device_key %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.bark_key_hint') }}</small></label>
+            <label>{{ t('notify_editor.bark_server') }}<input name="bark_server" value="{{ defaults.bark_server }}" autocomplete="off" placeholder="https://api.day.app"></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="pushplus" hidden>
+            <label>{{ t('notify_editor.pushplus_token') }}<input name="pushplus_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.pushplus_token else 'false' }}" placeholder="{% if defaults.pushplus_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"><small>{{ t('notify_editor.pushplus_token_hint') }}</small></label>
+            <label>{{ t('notify_editor.pushplus_topic') }}<input name="pushplus_topic" value="{{ defaults.pushplus_topic }}" autocomplete="off" placeholder="{{ t('notify_editor.pushplus_topic_ph') }}"></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="serverchan" hidden>
+            <label>{{ t('notify_editor.serverchan_key') }}<input name="serverchan_sendkey" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.serverchan_sendkey else 'false' }}" placeholder="{% if defaults.serverchan_sendkey %}{{ t('notify_editor.env_provided') }}{% else %}SCT...{% endif %}"><small>{{ t('notify_editor.serverchan_hint') }}</small></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="gotify" hidden>
+            <label>{{ t('notify_editor.gotify_server') }}<input name="gotify_server" value="{{ defaults.gotify_server }}" autocomplete="off" placeholder="https://gotify.example.com"><small>{{ t('notify_editor.gotify_server_hint') }}</small></label>
+            <label>{{ t('notify_editor.gotify_token') }}<input name="gotify_app_token" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.gotify_app_token else 'false' }}" placeholder="{% if defaults.gotify_app_token %}{{ t('notify_editor.env_provided') }}{% else %}{% endif %}"></label>
+          </fieldset>
+          <fieldset class="editor-channel-fields" data-editor-channel="ntfy" hidden>
+            <label>{{ t('notify_editor.ntfy_server') }}<input name="ntfy_server" value="{{ defaults.ntfy_server }}" autocomplete="off" placeholder="https://ntfy.sh"><small>{{ t('notify_editor.ntfy_server_hint') }}</small></label>
+            <label>{{ t('notify_editor.ntfy_topic') }}<input name="ntfy_topic" value="{{ defaults.ntfy_topic }}" autocomplete="off" placeholder="a1-control-alerts"></label>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="email" hidden>
-            <div class="field-pair"><label>SMTP 服务器<input name="email_smtp_host" value="{{ defaults.email_smtp_host }}" placeholder="smtp.qq.com"></label><label>端口<input name="email_smtp_port" type="number" min="1" max="65535" value="{{ defaults.email_smtp_port }}"></label></div>
-            <label>连接加密<select name="email_security"><option value="starttls" {% if defaults.email_security == "starttls" %}selected{% endif %}>STARTTLS（推荐）</option><option value="ssl" {% if defaults.email_security == "ssl" %}selected{% endif %}>SSL / TLS</option><option value="none" {% if defaults.email_security == "none" %}selected{% endif %}>不加密</option></select></label>
-            <label>SMTP 账号<input name="email_username" value="{{ defaults.email_username }}" autocomplete="username" placeholder="your-name@example.com"></label>
-            <label>SMTP 授权码<input name="email_password" type="password" autocomplete="current-password" data-provided="{{ 'true' if defaults.email_password else 'false' }}" placeholder="邮箱授权码或 SMTP 密码"><small>QQ、163 等邮箱通常使用授权码，不是网页登录密码。</small></label>
-            <div class="field-pair"><label>发件人<input name="email_from" value="{{ defaults.email_from }}" placeholder="your-name@example.com"></label><label>收件人<input name="email_to" value="{{ defaults.email_to }}" placeholder="notify@example.com"></label></div>
+            <div class="field-pair"><label>{{ t('notify_editor.smtp_server') }}<input name="email_smtp_host" value="{{ defaults.email_smtp_host }}" placeholder="smtp.qq.com"></label><label>{{ t('notify_editor.smtp_port') }}<input name="email_smtp_port" type="number" min="1" max="65535" value="{{ defaults.email_smtp_port }}"></label></div>
+            <label>{{ t('notify_editor.smtp_security') }}<span class="select-wrap"><select name="email_security"><option value="starttls" {% if defaults.email_security == "starttls" %}selected{% endif %}>{{ t('notify_editor.starttls') }}</option><option value="ssl" {% if defaults.email_security == "ssl" %}selected{% endif %}>{{ t('notify_editor.ssl_tls') }}</option><option value="none" {% if defaults.email_security == "none" %}selected{% endif %}>{{ t('notify_editor.no_tls') }}</option></select></span></label>
+            <label>{{ t('notify_editor.smtp_user') }}<input name="email_username" value="{{ defaults.email_username }}" autocomplete="username" placeholder="your-name@example.com"></label>
+            <label>{{ t('notify_editor.smtp_pass') }}<input name="email_password" type="password" autocomplete="current-password" data-provided="{{ 'true' if defaults.email_password else 'false' }}" placeholder=""><small>{{ t('notify_editor.smtp_pass_hint') }}</small></label>
+            <div class="field-pair"><label>{{ t('notify_editor.email_from') }}<input name="email_from" value="{{ defaults.email_from }}" placeholder="your-name@example.com"></label><label>{{ t('notify_editor.email_to') }}<input name="email_to" value="{{ defaults.email_to }}" placeholder="notify@example.com"></label></div>
           </fieldset>
           <fieldset class="editor-channel-fields" data-editor-channel="webhook" hidden>
             <input name="webhook_provider" type="hidden" value="{{ defaults.webhook_provider }}">
-            <label>机器人 / Webhook 地址<input name="webhook_url" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.webhook_url else 'false' }}" placeholder="{% if defaults.webhook_url %}已由环境变量提供{% else %}https://...{% endif %}"><small>粘贴对应平台提供的完整 Webhook 地址。</small></label>
-            <p id="webhook-replace-note" class="channel-note">每个任务保存一个 Webhook 渠道；改选其他机器人后会替换当前 Webhook。</p>
+            <label>{{ t('notify_editor.webhook_url') }}<input name="webhook_url" type="password" autocomplete="off" data-provided="{{ 'true' if defaults.webhook_url else 'false' }}" placeholder="{% if defaults.webhook_url %}{{ t('notify_editor.env_provided') }}{% else %}https://...{% endif %}"><small>{{ t('notify_editor.webhook_url_hint') }}</small></label>
+            <p id="webhook-replace-note" class="channel-note">{{ t('notify_editor.webhook_note') }}</p>
           </fieldset>
-          <label class="editor-enabled"><input id="notification-editor-enabled" type="checkbox"><span><b>任务成功后发送</b><small>消息包含公网 IP、登录用户和 SSH 端口</small></span></label>
+          <label class="editor-enabled"><input id="notification-editor-enabled" type="checkbox"><span><b>{{ t('notify_editor.enable_title') }}</b><small>{{ t('notify_editor.enable_hint') }}</small></span></label>
           <p id="notification-editor-error" class="form-error" role="alert"></p>
         </div>
       </section>
     </div>
-    <footer><span class="editor-footer-note">连接信息仅用于当前页面和本次任务，不会写入运行日志</span><div><button id="test-notification-editor" class="button ghost editor-test-button" type="button">发送测试</button><button id="cancel-notification-editor" class="button ghost" type="button">取消</button><button id="save-notification" class="button primary" type="submit">添加到任务</button></div></footer>
+    <footer><span class="editor-footer-note">{{ t('notify_editor.footer_note') }}</span><div><button id="test-notification-editor" class="button ghost editor-test-button" type="button">{{ t('notify_editor.send_test') }}</button><button id="cancel-notification-editor" class="button ghost" type="button">{{ t('app.cancel') }}</button><button id="save-notification" class="button primary" type="submit">{{ t('notify_editor.add_to_job') }}</button></div></footer>
   </form>
 </dialog>
-<script src="{{ url_for('static', filename='app.js') }}?v=20260718-9"></script>
+<script src="{{ url_for('static', filename='app.js') }}?v=20260718-11"></script>
 {% endblock %}
