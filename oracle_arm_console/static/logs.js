@@ -29,6 +29,7 @@ let toastTimer;
 let statusEventSource = null;
 let statusPollTimer = null;
 let statusReconnectTimer = null;
+let authenticationExpired = false;
 
 const beijingTimeOptions = {timeZone: "Asia/Shanghai"};
 
@@ -41,6 +42,14 @@ function notify(message) {
   logUi.toast.classList.add("visible");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => logUi.toast.classList.remove("visible"), 2400);
+}
+
+function redirectToLogin() {
+  if (authenticationExpired) return;
+  authenticationExpired = true;
+  disconnectStatusStream();
+  const next = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  window.location.replace(`/login?next=${encodeURIComponent(next)}`);
 }
 
 function applyStatus(data) {
@@ -70,6 +79,10 @@ function applyStatus(data) {
 async function refreshLogs() {
   try {
     const response = await fetch("/api/status", {headers: {Accept: "application/json"}});
+    if (response.status === 401) {
+      redirectToLogin();
+      return;
+    }
     if (!response.ok) throw new Error("status request failed");
     applyStatus(await response.json());
   } catch (_) {
@@ -106,12 +119,14 @@ function disconnectStatusStream() {
 }
 
 function startStatusPolling() {
+  if (authenticationExpired) return;
   stopStatusPolling();
   refreshLogs();
   statusPollTimer = setInterval(refreshLogs, 2000);
 }
 
 function connectStatusStream() {
+  if (authenticationExpired) return;
   disconnectStatusStream();
   if (typeof EventSource === "undefined") {
     startStatusPolling();
@@ -129,6 +144,7 @@ function connectStatusStream() {
   source.onerror = () => {
     source.close();
     if (statusEventSource === source) statusEventSource = null;
+    if (authenticationExpired) return;
     startStatusPolling();
     clearStatusReconnect();
     statusReconnectTimer = setTimeout(() => {

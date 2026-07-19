@@ -58,8 +58,7 @@ def create_app(
 ):
     app = Flask(__name__)
     app.config.update(
-        SECRET_KEY=os.environ.get("WEB_SECRET_KEY") or secrets.token_hex(32),
-        WEB_PASSWORD=os.environ.get("WEB_PASSWORD") or "admin",
+        SECRET_KEY=None,
         SECURITY_FILE=os.environ.get("SECURITY_FILE") or "data/security.json",
         OCI_DATA_DIR=os.environ.get("OCI_DATA_DIR") or "data/oci",
         SSH_KEY_DIR=os.environ.get("SSH_KEY_DIR") or "data/ssh-keys",
@@ -72,9 +71,9 @@ def create_app(
         app.config.update(config)
     app.job_manager = job_manager or JobManager()
     app.resource_loader = resource_loader or load_oci_resources
-    app.password_store = password_store or PasswordStore(
-        app.config["SECURITY_FILE"], app.config["WEB_PASSWORD"]
-    )
+    app.password_store = password_store or PasswordStore(app.config["SECURITY_FILE"])
+    if not app.config.get("SECRET_KEY"):
+        app.config["SECRET_KEY"] = app.password_store.session_secret
     app.credentials_store = credentials_store or OciCredentialsStore(app.config["OCI_DATA_DIR"])
     app.ssh_key_store = ssh_key_store or SshKeyStore(app.config["SSH_KEY_DIR"])
     app.notification_sender = notification_sender or send_notifications
@@ -187,29 +186,48 @@ def create_app(
     def login():
         session.setdefault("csrf_token", secrets.token_urlsafe(24))
         error = None
+        setup_required = not app.password_store.is_initialized
         if request.method == "POST":
             if not hmac.compare_digest(request.form.get("csrf_token", ""), session["csrf_token"]):
                 abort(400, t("errors.csrf"))
-            address = request.remote_addr or "unknown"
-            attempts, locked_until = login_failures.get(address, (0, 0))
-            now = time.time()
-            if locked_until > now:
-                error = t("login.error_locked")
-            elif app.password_store.verify(request.form.get("password", "")):
-                login_failures.pop(address, None)
-                # Keep locale cookie; only clear server session.
-                session.clear()
-                session.update(authenticated=True, csrf_token=secrets.token_urlsafe(24))
-                return redirect(url_for("dashboard"))
+            password = request.form.get("password", "")
+            if setup_required:
+                confirmation = request.form.get("confirm_password", "")
+                if len(password) < 8:
+                    error = t("login.setup_error_short")
+                elif password != confirmation:
+                    error = t("login.setup_error_mismatch")
+                else:
+                    app.password_store.initialize(password)
+                    session.clear()
+                    session.update(authenticated=True, csrf_token=secrets.token_urlsafe(24))
+                    return redirect(url_for("dashboard"))
             else:
-                attempts += 1
-                login_failures[address] = (0, now + 60) if attempts >= 5 else (attempts, 0)
-                error = t("login.error_wrong")
-        return render_template("login.html", error=error, csrf_token=session["csrf_token"])
+                address = request.remote_addr or "unknown"
+                attempts, locked_until = login_failures.get(address, (0, 0))
+                now = time.time()
+                if locked_until > now:
+                    error = t("login.error_locked")
+                elif app.password_store.verify(password):
+                    login_failures.pop(address, None)
+                    # Keep locale cookie; only clear server session.
+                    session.clear()
+                    session.update(authenticated=True, csrf_token=secrets.token_urlsafe(24))
+                    return redirect(url_for("dashboard"))
+                else:
+                    attempts += 1
+                    login_failures[address] = (0, now + 60) if attempts >= 5 else (attempts, 0)
+                    error = t("login.error_wrong")
+        return render_template(
+            "login.html",
+            error=error,
+            csrf_token=session["csrf_token"],
+            setup_required=setup_required,
+        )
 
     @app.get("/")
     def dashboard():
-        defaults = TaskSettings.from_env()
+        defaults = TaskSettings()
         oci_configuration = app.credentials_store.status()
         return render_template(
             "dashboard.html",

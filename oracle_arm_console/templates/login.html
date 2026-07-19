@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ t('login.title') }}{% endblock %}
+{% block title %}{{ t('login.setup_title') if setup_required else t('login.title') }}{% endblock %}
 {% block body %}
 <main class="login-shell">
   <section class="login-panel" aria-labelledby="login-title">
@@ -8,16 +8,20 @@
       {% with switch_id='login' %}{% include "_lang_switch.html" %}{% endwith %}
     </div>
     <div class="login-copy">
-      <p class="eyebrow">{{ t('login.eyebrow') }}</p>
-      <h1 id="login-title">{{ t('login.heading') }}</h1>
-      <p>{{ t('login.subtitle') }}</p>
+      <p class="eyebrow">{{ t('login.setup_eyebrow') if setup_required else t('login.eyebrow') }}</p>
+      <h1 id="login-title">{{ t('login.setup_heading') if setup_required else t('login.heading') }}</h1>
+      <p>{{ t('login.setup_subtitle') if setup_required else t('login.subtitle') }}</p>
     </div>
     {% if error %}<div class="alert" role="alert">{{ error }}</div>{% endif %}
     <form method="post" class="login-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label for="password">{{ t('login.password') }}</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-      <button type="submit" class="button primary">{{ t('login.submit') }}</button>
+      <label for="password">{{ t('login.setup_password') if setup_required else t('login.password') }}</label>
+      <input id="password" name="password" type="password" autocomplete="{{ 'new-password' if setup_required else 'current-password' }}" minlength="{{ 8 if setup_required else 1 }}" required autofocus>
+      {% if setup_required %}
+        <label for="confirm-password">{{ t('login.setup_confirm') }}</label>
+        <input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+      {% endif %}
+      <button type="submit" class="button primary">{{ t('login.setup_submit') if setup_required else t('login.submit') }}</button>
     </form>
   </section>
   <aside class="login-signal" aria-hidden="true">

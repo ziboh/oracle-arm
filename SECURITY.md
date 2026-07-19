@@ -8,8 +8,8 @@ Until a private contact address is published, use the repository owner's private
 
 ## Deployment requirements
 
-- Change the default `admin` password immediately.
-- Set a long, random `WEB_SECRET_KEY`.
+- Create a strong admin password on the first visit. The application has no default password.
+- Protect the persistent data volume; it contains the password hash and generated session secret.
 - Use HTTPS and `WEB_SECURE_COOKIE=true` behind a reverse proxy.
 - Keep OCI credentials and generated SSH private keys in the persistent data volume only.
 - Do not expose port 8080 directly to the public internet.

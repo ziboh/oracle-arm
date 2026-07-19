@@ -6,7 +6,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     WEB_PORT=8080 \
     SECURITY_FILE=/data/security.json \
     OCI_DATA_DIR=/data/oci \
-    OCI_CONFIG_FILE=/data/oci/config \
     SSH_KEY_DIR=/data/ssh-keys
 
 WORKDIR /app

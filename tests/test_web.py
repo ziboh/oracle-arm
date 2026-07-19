@@ -1,6 +1,7 @@
 import io
 
 from oracle_arm_console import create_app
+from oracle_arm_console.security import PasswordStore
 from oracle_arm_console.ssh_keys import SshKeyStore
 
 from test_instance import VALID_FORM
@@ -77,12 +78,12 @@ def make_client(credentials_store=None, notification_sender=None):
     app = create_app(
         {
             "TESTING": True,
-            "WEB_PASSWORD": "test-password",
             "SECRET_KEY": "test-secret",
             "SECURITY_FILE": None,
         },
         manager,
         resource_loader=lambda settings: OCI_RESOURCES,
+        password_store=PasswordStore(None, "test-password"),
         credentials_store=credentials_store or FakeCredentialsStore(),
         ssh_key_store=FakeSshKeyStore(),
         notification_sender=notification_sender,
@@ -290,14 +291,54 @@ def test_locale_endpoint_switches_and_persists():
     assert 'name="lang"' in body
 
 
-def test_default_admin_password():
+def test_explicit_password_store_can_be_used_by_integrations():
     app = create_app(
-        {"TESTING": True, "WEB_PASSWORD": "admin", "SECRET_KEY": "test-secret", "SECURITY_FILE": None},
+        {"TESTING": True, "SECRET_KEY": "test-secret", "SECURITY_FILE": None},
+        FakeJobManager(),
+        resource_loader=lambda settings: OCI_RESOURCES,
+        password_store=PasswordStore(None, "admin"),
+    )
+    client = app.test_client()
+    assert login(client, "admin").status_code == 302
+
+
+def test_first_visit_requires_setting_password_and_persists_it(tmp_path):
+    security_file = tmp_path / "security.json"
+    app = create_app(
+        {"TESTING": True, "SECRET_KEY": None, "SECURITY_FILE": str(security_file)},
         FakeJobManager(),
         resource_loader=lambda settings: OCI_RESOURCES,
     )
     client = app.test_client()
-    assert login(client, "admin").status_code == 302
+
+    page = client.get("/login")
+    assert page.status_code == 200
+    assert "Create the admin password" in page.get_data(as_text=True)
+    with client.session_transaction() as session:
+        token = session["csrf_token"]
+
+    response = client.post(
+        "/login",
+        data={
+            "csrf_token": token,
+            "password": "first-password",
+            "confirm_password": "first-password",
+        },
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/")
+    assert app.password_store.is_initialized
+    assert security_file.is_file()
+    first_secret = app.password_store.session_secret
+
+    reloaded = create_app(
+        {"TESTING": True, "SECRET_KEY": None, "SECURITY_FILE": str(security_file)},
+        FakeJobManager(),
+        resource_loader=lambda settings: OCI_RESOURCES,
+    )
+    reloaded_client = reloaded.test_client()
+    assert login(reloaded_client, "first-password").status_code == 302
+    assert reloaded.password_store.session_secret == first_secret
 
 
 def test_start_and_stop_task():
@@ -407,9 +448,10 @@ def test_notification_test_rejects_incomplete_configuration():
 def test_download_generated_private_key_from_relative_data_dir(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     app = create_app(
-        {"TESTING": True, "WEB_PASSWORD": "admin", "SECRET_KEY": "test-secret", "SECURITY_FILE": None},
+        {"TESTING": True, "SECRET_KEY": "test-secret", "SECURITY_FILE": None},
         FakeJobManager(),
         resource_loader=lambda settings: OCI_RESOURCES,
+        password_store=PasswordStore(None, "admin"),
         credentials_store=FakeCredentialsStore(),
         ssh_key_store=SshKeyStore("ssh-keys"),
     )

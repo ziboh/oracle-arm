@@ -4,6 +4,13 @@ All notable changes to A1 Control are documented here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-19
+
+- Bump version to 1.2.0.
+
+- Replace the default `admin` / `WEB_PASSWORD` flow with first-visit password setup and a persistent generated session secret.
+- Keep notification credentials and task defaults in the browser workflow instead of duplicating them across `.env` and Compose.
+- Reduce `.env.example` to the two deployment-level network and cookie options.
 - GitHub Actions: build multi-arch Docker images and push to GHCR on version tags (`v*`) using the built-in `GITHUB_TOKEN` (no extra secrets).
 - Compose: optional `ORACLE_ARM_IMAGE` to pull a published image instead of building locally.
 

@@ -1,188 +1,83 @@
-# A1 Control
+<h1 align="center">A1 Control</h1>
 
-[English](README.md)
+<p align="center">
+  <strong>用于创建 OCI Ampere A1 Always Free 实例的自托管 Web 控制台</strong>
+</p>
 
-当前版本：`1.1.0`。A1 Control 使用 MIT 许可证发布。
+<p align="center">
+  <a href="./README.md">English</a> | 简体中文
+</p>
 
-A1 Control 是自托管 Web 控制台，用于申请 **OCI Ampere A1**（Always Free）实例。通过 OCI API 自动加载隔间、可用性域、公有子网与 ARM 镜像；容量不足时自动重试；在密码认证后提供任务状态与实时日志。
+A1 Control 可以自动发现 OCI 资源，在暂无 A1 容量时持续重试，并通过带密码保护的网页完成整个申请流程。
 
-## 功能
+## 主要功能
 
-- 密码登录、CSRF 防护、登录限流
-- 自动发现 OCI 隔间、可用性域、公有子网与 A1 镜像
-- Always Free 200 GB 块存储用量与剩余配额
-- 浏览器内导入 OCI 配置片段 + PEM 私钥（适合 Docker）
-- 在界面中配置实例规格，无需 Terraform / `main.tf`
-- 单任务启停与实时日志
-- 可选成功通知（Telegram、Bark、PushPlus、ServerChan、Gotify、ntfy、Webhook、SMTP）
-- 创建成功后展示公网 IP 与随机 root 密码
-- Waitress WSGI，便于反向代理部署
-- **基于文件的多语言**（默认英文；浏览器语言为中文时使用中文）
+- 自动发现隔间、可用性域、公有子网和 ARM 镜像
+- 在网页中设置 A1 OCPU、内存、启动卷和 SSH 登录方式
+- OCI 容量不足时自动重试
+- 显示任务状态、实时日志、公网 IP 和生成的 root 密码
+- 显示 Always Free 200 GB 块存储配额及剩余容量
+- 可通过 Telegram、Bark、PushPlus、ServerChan、Gotify、ntfy、Webhook 或 SMTP 发送成功通知
+- 登录页和顶部导航栏均可切换中文与英文
 
-## 项目结构
+## 使用 Docker 快速部署
 
-```text
-oracle-arm/
-├── oracle_arm_console/
-│   ├── __main__.py        # 生产入口
-│   ├── dev.py             # uv run dev / 调试服务
-│   ├── cli.py             # worker 子进程
-│   ├── jobs.py            # 任务生命周期与日志
-│   ├── provisioner.py     # OCI 实例创建
-│   ├── settings.py        # 设置模型与校验
-│   ├── instance.py        # 实例表单模型
-│   ├── oci_resources.py   # OCI 资源发现
-│   ├── i18n.py            # 语言加载
-│   ├── locales/           # 每种语言一个 JSON
-│   ├── web.py             # Flask 应用与认证
-│   ├── static/
-│   └── templates/
-├── tests/
-├── .env.example
-└── pyproject.toml
+开始前请准备 Docker Compose，以及 OCI API 凭证（config 配置片段和对应的未加密 PEM 私钥）。
+
+```bash
+git clone https://github.com/ziboh/oracle-arm.git
+cd oracle-arm
+docker compose pull
+docker compose up -d
 ```
+
+仅本机访问时不需要创建 `.env`。打开 `http://127.0.0.1:8080`，在首次页面中设置管理密码。Session 签名密钥会自动生成并保存在持久化数据卷中。
+
+如需从其他设备访问，请将 `.env.example` 复制为 `.env`，修改 `BIND_ADDRESS`、启用安全 Cookie，并通过 HTTPS 反向代理对外提供服务。
+
+默认镜像为 `ghcr.io/ziboh/oracle-arm:latest`，支持 `linux/amd64` 和 `linux/arm64`。如需固定版本，可在 `.env` 中设置 `ORACLE_ARM_IMAGE`。
+
+## 首次配置
+
+1. 首次访问时设置管理密码；系统没有默认密码。
+2. 打开 **设置**，导入 OCI config 配置片段和对应的 PEM 私钥。
+3. 返回 **控制台**，选择自动发现的 OCI 资源并设置实例规格。
+4. 启动任务，然后在 **日志** 页面查看进度。
+
+首次访问时，界面会根据浏览器语言选择中文或英文。之后可随时使用登录页或顶部栏的语言菜单切换。
+
+## 常用配置
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `BIND_ADDRESS` | `127.0.0.1` | Docker Compose 对宿主机暴露的地址 |
+| `WEB_SECURE_COOKIE` | `false` | 公网地址使用 HTTPS 时设为 `true` |
+| `ORACLE_ARM_IMAGE` | `ghcr.io/ziboh/oracle-arm:latest` | 可选的镜像版本覆盖值 |
+
+OCI 凭证、任务参数、重试间隔和通知渠道都在网页中设置，不再通过 `.env` 配置。
 
 ## 本地开发
 
-需要 Python 3.10+ 与 OCI API 凭证。实例登录用的 Ed25519 密钥可由控制台生成。
-
-### 安装与运行（uv）
+推荐使用 Python 3.10+ 和 [uv](https://docs.astral.sh/uv/)：
 
 ```bash
 uv sync
 uv run dev
 ```
 
-浏览器打开 `http://127.0.0.1:8080`。默认管理密码为 `admin`，请在 **设置** 中尽快修改。
-
-类生产安装：
+运行测试：
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .\.venv\Scripts\Activate.ps1
-pip install -e .
-
-export WEB_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
-export WEB_HOST=0.0.0.0
-oracle-arm-console
-```
-
-### OCI API 凭证
-
-在 OCI 控制台创建 API 密钥并妥善保存：
-
-- 多行 config 配置片段
-- 创建时下载的未加密 PEM 私钥
-
-可放在宿主机 `~/.oci/`，也可登录后在控制台 / 设置页导入。
-
-### 语言支持
-
-界面文案按语言分文件存放：
-
-```text
-oracle_arm_console/locales/
-  en.json   # 英文（默认）
-  zh.json   # 中文
-```
-
-选择顺序：
-
-1. 手动切换：语言下拉框 → `GET /locale?lang=en|zh`（写入长期 `lang` Cookie 后跳回原页）
-2. 已有 `lang` Cookie（你上次的选择）
-3. `Accept-Language` — **仅首次访问**（尚无 Cookie）时使用，解析后会立刻写入 Cookie
-4. 回退：**英文**
-
-因此浏览器语言只决定第一次打开时的默认界面；之后以登录页 / 顶栏的语言下拉框为准，直到清除 Cookie。也可临时打开 `/?lang=en` 强制一次。
-
-中文浏览器环境（`zh`、`zh-CN` 等）会解析为 `zh`。其他语言在未添加对应 JSON 时保持英文。
-
-**新增语言：** 将 `en.json` 复制为例如 `fr.json`，翻译 value 后重启进程。登录页与顶栏的语言下拉框会自动出现新选项。
-
-登录页或登录后顶栏使用 **语言** 下拉框即可切换。
-
-## Docker
-
-### 本地构建
-
-```bash
-docker compose up -d --build
-```
-
-### 拉取已发布镜像（GHCR）
-
-每次推送版本标签（`v*`）时，GitHub Actions 会构建多架构镜像（`linux/amd64`、`linux/arm64`），并用内置的 `GITHUB_TOKEN` 推送到 GitHub Container Registry（**无需额外 Secret**）：
-
-```text
-ghcr.io/ziboh/oracle-arm:1.1.0
-ghcr.io/ziboh/oracle-arm:latest
-```
-
-```bash
-export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:1.1.0
-docker compose pull
-docker compose up -d
-
-# 或最新版本
-export ORACLE_ARM_IMAGE=ghcr.io/ziboh/oracle-arm:latest
-docker compose up -d
-```
-
-若 Package 为私有，需先登录：
-
-```bash
-echo "$GITHUB_TOKEN" | docker login ghcr.io -u USERNAME --password-stdin
-```
-
-首次成功发布后，在 **GitHub → Packages** 中将包可见性设为 **Public**，即可匿名拉取。
-
-### 发布新镜像（维护者）
-
-不需要 Docker Hub 账号或任何 Secrets。打标签并推送即可：
-
-```bash
-git tag v1.2.0
-git push origin v1.2.0
-```
-
-会触发 [`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)。也可在 Actions 页手动运行 **Docker** 工作流（`workflow_dispatch`）。
-
-生产环境请复制 `.env.example` 为 `.env`，至少设置 `WEB_PASSWORD`、`WEB_SECRET_KEY`，并保持 `BIND_ADDRESS=127.0.0.1`（除非已在反向代理终止 TLS）。
-
-## 配置
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `WEB_PASSWORD` | `admin` | 自定义哈希保存前的初始密码 |
-| `WEB_SECRET_KEY` | 每次启动随机 | 请持久化为足够长的随机值 |
-| `WEB_HOST` / `WEB_PORT` | `127.0.0.1` / `8080` | 监听地址 |
-| `WEB_SECURE_COOKIE` | `false` | HTTPS 后设为 `true` |
-| `OCI_DATA_DIR` | `data/oci` | 导入的 OCI 配置与 PEM |
-| `SSH_KEY_DIR` | `data/ssh-keys` | 生成的实例私钥 |
-| `RETRY_INTERVAL` | `10` | 初始重试间隔（秒） |
-
-通知相关默认值可通过环境变量（见 `.env.example`）或任务界面单独配置。
-
-## 测试
-
-```bash
-pip install -e ".[dev]"
-pytest
-# 或
 uv run pytest
 ```
 
-## 安全
+## 安全建议
 
-- 公网部署请使用 HTTPS，并设置 `WEB_SECURE_COOKIE=true`
-- 不要将应用端口直接暴露到公网
-- OCI 私钥仅保存在服务器；界面不会回显私钥内容
-- 运行日志可能包含实例 root 密码 — 请限制控制台访问权限
+- 公网部署必须使用 HTTPS，并设置 `WEB_SECURE_COOKIE=true`。
+- 不要直接向公网开放 `8080` 端口，应通过反向代理访问。
+- 妥善保护数据卷，其中包含 OCI 凭证、生成的 SSH 密钥和任务数据。
+- 任务日志可能包含生成的 root 密码，请严格限制控制台访问权限。
 
-## 参与贡献
+## 项目链接
 
-- [贡献指南](CONTRIBUTING.md)
-- [安全策略](SECURITY.md)
-- [行为准则](CODE_OF_CONDUCT.md)
-- [更新日志](CHANGELOG.md)
-- [许可证](LICENSE)
+[更新日志](CHANGELOG.md) · [参与贡献](CONTRIBUTING.md) · [安全策略](SECURITY.md) · [许可证](LICENSE)

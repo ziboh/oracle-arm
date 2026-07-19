@@ -26,7 +26,16 @@
     "password": "Admin password",
     "submit": "Enter console",
     "error_wrong": "Incorrect password",
-    "error_locked": "Too many attempts. Try again in one minute."
+    "error_locked": "Too many attempts. Try again in one minute.",
+    "setup_title": "Set up · A1 ARM Control",
+    "setup_eyebrow": "FIRST RUN / ACCESS CONTROL",
+    "setup_heading": "Create the admin password",
+    "setup_subtitle": "This password protects OCI credentials, task logs, and generated SSH keys.",
+    "setup_password": "New admin password",
+    "setup_confirm": "Confirm admin password",
+    "setup_submit": "Save password and continue",
+    "setup_error_short": "Admin password must be at least 8 characters",
+    "setup_error_mismatch": "Passwords do not match"
   },
   "nav": {
     "context_console": "Capacity watcher ready",

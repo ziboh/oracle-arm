@@ -16,13 +16,24 @@ def test_form_settings_are_validated():
     assert settings.retry_interval == 15
 
 
-def test_telegram_requires_credentials():
+def test_telegram_requires_credentials(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_TOKEN", "must-not-be-imported")
     with pytest.raises(ValueError, match="Bot token"):
         TaskSettings.from_form({
             "retry_interval": "10",
             "oci_profile": "DEFAULT",
             "telegram_enabled": "true",
             "telegram_api_host": "api.telegram.org",
+        })
+
+
+def test_form_does_not_import_notification_credentials_from_environment(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_TOKEN", "env-token")
+    with pytest.raises(ValueError, match="Bot token"):
+        TaskSettings.from_form({
+            "retry_interval": "10",
+            "telegram_enabled": "true",
+            "telegram_chat_id": "123",
         })
 
 
@@ -45,7 +56,7 @@ def test_bark_and_webhook_are_validated():
         })
 
 
-def test_notification_settings_are_exported():
+def test_notification_settings_round_trip_through_task_file():
     settings = TaskSettings.from_form({
         "retry_interval": "10",
         "telegram_api_host": "api.telegram.org",
@@ -57,14 +68,14 @@ def test_notification_settings_are_exported():
         "webhook_url": "https://hooks.example.test/robot",
     })
 
-    environment = settings.as_environment()
-    assert environment["BARK_ENABLED"] == "true"
-    assert environment["BARK_DEVICE_KEY"] == "device-key"
-    assert environment["WEBHOOK_PROVIDER"] == "feishu"
-    assert environment["WEBHOOK_URL"] == "https://hooks.example.test/robot"
+    restored = TaskSettings.from_dict(settings.as_dict())
+    assert restored.bark_enabled is True
+    assert restored.bark_device_key == "device-key"
+    assert restored.webhook_provider == "feishu"
+    assert restored.webhook_url == "https://hooks.example.test/robot"
 
 
-def test_email_settings_are_validated_and_exported():
+def test_email_settings_are_validated_and_round_trip():
     settings = TaskSettings.from_form({
         "retry_interval": "10",
         "email_enabled": "true",
@@ -79,10 +90,10 @@ def test_email_settings_are_validated_and_exported():
 
     assert settings.email_smtp_port == 465
     assert settings.email_security == "ssl"
-    assert settings.as_environment()["EMAIL_ENABLED"] == "true"
+    assert TaskSettings.from_dict(settings.as_dict()).email_enabled is True
 
 
-def test_new_push_channels_are_validated_and_exported():
+def test_new_push_channels_are_validated_and_round_trip():
     configured = TaskSettings.from_form({
         "retry_interval": "10",
         "pushplus_enabled": "true",
@@ -97,8 +108,8 @@ def test_new_push_channels_are_validated_and_exported():
         "ntfy_topic": "a1",
     })
 
-    environment = configured.as_environment()
-    assert environment["PUSHPLUS_TOKEN"] == "push-token"
-    assert environment["SERVERCHAN_SENDKEY"] == "SCT-key"
-    assert environment["GOTIFY_SERVER"] == "https://gotify.example.test"
-    assert environment["NTFY_TOPIC"] == "a1"
+    restored = TaskSettings.from_dict(configured.as_dict())
+    assert restored.pushplus_token == "push-token"
+    assert restored.serverchan_sendkey == "SCT-key"
+    assert restored.gotify_server == "https://gotify.example.test"
+    assert restored.ntfy_topic == "a1"

@@ -1,5 +1,4 @@
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -50,17 +49,22 @@ class JobManager:
             instance_path.write_text(
                 json.dumps(spec.as_dict(), ensure_ascii=True, indent=2), encoding="utf-8"
             )
-            env = os.environ.copy()
-            env.update(settings.as_environment())
             self.logs.clear()
             self.started_at = self._now()
             self.finished_at = None
             self.exit_code = None
             self._append_unlocked(t("job.queued"))
             self.process = subprocess.Popen(
-                [sys.executable, "-u", "-m", "oracle_arm_console.cli", str(instance_path)],
+                [
+                    sys.executable,
+                    "-u",
+                    "-m",
+                    "oracle_arm_console.cli",
+                    str(instance_path),
+                    "--settings-stdin",
+                ],
                 cwd=str(Path.cwd()),
-                env=env,
+                stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -68,6 +72,12 @@ class JobManager:
                 errors="replace",
                 bufsize=1,
             )
+            assert self.process.stdin is not None
+            try:
+                self.process.stdin.write(json.dumps(settings.as_dict(), ensure_ascii=True))
+                self.process.stdin.close()
+            except (BrokenPipeError, OSError, ValueError):
+                pass
             threading.Thread(target=self._collect, args=(self.process,), daemon=True).start()
 
     def stop(self):
