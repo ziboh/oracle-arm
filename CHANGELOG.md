@@ -4,6 +4,14 @@ All notable changes to A1 Control are documented here.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-20
+
+- Fix horizontal jitter when switching between Console / Logs / Settings by hiding native scrollbars while keeping scroll behaviour, so pages with and without overflow keep the same width.
+- Lock the Console page shell so a full-height layout no longer scrolls unexpectedly.
+- Load web fonts with `font-display: optional` to avoid text reflow on navigation.
+- Retry OCI networking failures during instance launch and public IP lookup (`requests`/`oci` request exceptions).
+- Sync package version to 1.2.1 across `pyproject.toml`, `uv.lock`, and `__init__.py`.
+
 ## [1.2.0] - 2026-07-19
 
 - Bump version to 1.2.0.

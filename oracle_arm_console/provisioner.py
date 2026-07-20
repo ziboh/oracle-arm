@@ -5,6 +5,7 @@ import string
 import time
 
 import oci
+import requests
 from .settings import TaskSettings
 from .instance import InstanceSpec
 from .notifications import send_notifications
@@ -46,7 +47,7 @@ class Provisioner:
             attempts += 1
             try:
                 instance = self.compute.launch_instance(self._launch_details(password)).data
-            except oci.exceptions.RequestException as exc:
+            except (requests.exceptions.RequestException, oci.exceptions.RequestException) as exc:
                 interval = min(interval + 10, retry_interval_max)
                 self.emit(
                     t("job.network_retry", error=type(exc).__name__, seconds=interval)
@@ -101,13 +102,16 @@ class Provisioner:
     def _wait_for_public_ip(self, instance_id):
         network = oci.core.VirtualNetworkClient(self.config)
         for _ in range(100):
-            attachments = self.compute.list_vnic_attachments(
-                compartment_id=self.spec.compartment_id, instance_id=instance_id
-            ).data
-            if attachments:
-                public_ip = network.get_vnic(attachments[0].vnic_id).data.public_ip
-                if public_ip:
-                    return public_ip
+            try:
+                attachments = self.compute.list_vnic_attachments(
+                    compartment_id=self.spec.compartment_id, instance_id=instance_id
+                ).data
+                if attachments:
+                    public_ip = network.get_vnic(attachments[0].vnic_id).data.public_ip
+                    if public_ip:
+                        return public_ip
+            except (requests.exceptions.RequestException, oci.exceptions.RequestException) as exc:
+                self.emit(t("job.network_retry", error=type(exc).__name__, seconds=5))
             time.sleep(5)
         return None
 

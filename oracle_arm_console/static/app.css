@@ -26,7 +26,8 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; }
+html { min-width: 320px; scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar { width: 0; height: 0; }
 body {
   margin: 0;
   min-width: 320px;
@@ -666,6 +667,7 @@ code, pre, .status-data dd, .resource-status, .storage-meter strong, .storage-me
   margin: 0 auto;
   max-width: 1480px;
   min-height: 680px;
+  overflow: hidden;
   padding: 22px 28px 26px;
 }
 .mission-bar {
@@ -838,8 +840,10 @@ code, pre, .status-data dd, .resource-status, .storage-meter strong, .storage-me
   overscroll-behavior: contain;
   padding: 27px 30px 34px;
   scrollbar-color: #a9b8bf transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.config-panel::-webkit-scrollbar { width: 0; height: 0; }
 .config-panel[hidden] { display: none; }
 fieldset { border: 0; display: grid; gap: 15px; margin: 0; padding: 0; }
 fieldset:disabled { opacity: .58; }
